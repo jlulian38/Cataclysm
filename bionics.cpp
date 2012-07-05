@@ -363,6 +363,7 @@ bool player::install_bionics(game *g, it_bionic* type)
   return false;
  }
  std::string bio_name = type->name.substr(5);	// Strip off "CBM: "
+ clear();
  WINDOW* w = newwin(25, 80, 0, 0);
 
  int pl_skill = int_cur + sklevel[sk_electronics] * 4 +
@@ -554,7 +555,7 @@ void bionics_install_failure(game *g, player *u, int success)
   fail_text += ", causing great pain.";
   u->pain += rng(failure_level * 3, failure_level * 6);
   break;
- 
+
  case 2:
   fail_text += " and your body is damaged.";
   u->hurtall(rng(failure_level, failure_level * 2));

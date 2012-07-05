@@ -132,6 +132,7 @@ class monster {
  int spawnmapx, spawnmapy, spawnposx, spawnposy;
 
 // DEFINING VALUES
+ t_feature feature;
  int moves, speed;
  int hp;
  int sp_timeout;

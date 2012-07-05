@@ -11,11 +11,7 @@
 #include <sstream>
 #include <stdlib.h>
 
-#if (defined _WIN32 || defined WINDOWS)
-	#include "catacurse.h"
-#else
-	#include <curses.h>
-#endif
+#include "catacurses.h"
 
 nc_color encumb_color(int level);
 bool activity_is_suspendable(activity_type type);
@@ -56,6 +52,7 @@ player::player()
  in_vehicle = false;
  style_selected = itm_null;
  xp_pool = 0;
+ feature = gen_feature();
  last_item = itype_id(itm_null);
  for (int i = 0; i < num_skill_types; i++) {
   sklevel[i] = 0;
@@ -114,6 +111,7 @@ player& player::operator= (player rhs)
  oxygen = rhs.oxygen;
  active_mission = rhs.active_mission;
  xp_pool = rhs.xp_pool;
+ feature = rhs.feature;
  for (int i = 0; i < num_skill_types; i++) {
   sklevel[i] = rhs.sklevel[i];
   skexercise[i] = rhs.skexercise[i];
@@ -151,7 +149,7 @@ void player::normalize(game *g)
   hp_cur[i] = hp_max[i];
  }
 }
- 
+
 void player::reset(game *g)
 {
 // Reset our stats to normal levels
@@ -218,7 +216,7 @@ void player::reset(game *g)
  dex_cur += int(stim / 10);
  per_cur += int(stim /  7);
  int_cur += int(stim /  6);
- if (stim >= 30) { 
+ if (stim >= 30) {
   dex_cur -= int(abs(stim - 15) /  8);
   per_cur -= int(abs(stim - 15) / 12);
   int_cur -= int(abs(stim - 15) / 14);
@@ -248,7 +246,7 @@ void player::reset(game *g)
   per_cur = 0;
  if (int_cur < 0)
   int_cur = 0;
- 
+
  int mor = morale_level();
  int xp_frequency = 10 - int(mor / 20);
  if (xp_frequency < 1)
@@ -395,7 +393,7 @@ int player::run_cost(int base_cost)
 
  return movecost;
 }
- 
+
 
 int player::swim_speed()
 {
@@ -449,13 +447,14 @@ void player::load_info(game *g, std::string data)
          max_power_level >> hunger >> thirst >> fatigue >> stim >>
          pain >> pkill >> radiation >> cash >> recoil >> driving_recoil >>
          inveh >> scent >> moves >> underwater >> dodges_left >> blocks_left >>
-         oxygen >> active_mission >> xp_pool >> male >> health >> styletmp;
+         oxygen >> active_mission >> xp_pool >> male >> health >> feature >> styletmp;
 
  activity.load_info(dump);
  backlog.load_info(dump);
 
  in_vehicle = inveh != 0;
  style_selected = itype_id(styletmp);
+
 
  for (int i = 0; i < PF_MAX2; i++)
   dump >> my_traits[i];
@@ -533,8 +532,9 @@ std::string player::save_info()
          (in_vehicle? 1 : 0) << " " << scent << " " << moves << " " <<
          underwater << " " << dodges_left << " " << blocks_left << " " <<
          oxygen << " " << active_mission << " " << xp_pool << " " << male <<
-         " " << health << " " << style_selected << " " <<
+         " " << health << " " << feature << " " << style_selected << " " <<
          activity.save_info() << " " << backlog.save_info() << " ";
+
 
  for (int i = 0; i < PF_MAX2; i++)
   dump << my_traits[i] << " ";
@@ -636,12 +636,12 @@ void player::disp_info(game *g)
   int dexbonus = int(stim / 10);
   int perbonus = int(stim /  7);
   int intbonus = int(stim /  6);
-  if (abs(stim) >= 30) { 
+  if (abs(stim) >= 30) {
    dexbonus -= int(abs(stim - 15) /  8);
    perbonus -= int(abs(stim - 15) / 12);
    intbonus -= int(abs(stim - 15) / 14);
   }
-  
+
   if (dexbonus < 0)
    effect_name.push_back("Stimulant Overdose");
   else
@@ -689,6 +689,7 @@ Strength - 4;    Dexterity - 4;    Intelligence - 4;    Dexterity - 4");
   }
  }
 
+ clear ();
  WINDOW* w_grid    = newwin(25, 80,  0,  0);
  WINDOW* w_stats   = newwin( 9, 26,  2,  0);
  WINDOW* w_encumb  = newwin( 9, 26, 12,  0);
@@ -995,7 +996,7 @@ which require brute force.");
     mvwprintz(w_stats, 3, 2, h_ltgray, "Dexterity:");
     mvwprintz(w_info, 0, 0, c_magenta, "\
 Dexterity affects your chance to hit in melee combat, helps you steady your\n\
-gun for ranged combat, and enhances many actions that require finesse."); 
+gun for ranged combat, and enhances many actions that require finesse.");
    } else if (line == 2) {
     mvwprintz(w_stats, 4, 2, h_ltgray, "Intelligence:");
     mvwprintz(w_info, 0, 0, c_magenta, "\
@@ -1271,7 +1272,7 @@ encumb(bp_feet) * 5);
     } else {
      mvwprintz(w_skills, 2 + i - min, 1, status, "%s:",
                skill_name(skillslist[i]).c_str());
-     mvwprintz(w_skills, 2 + i - min,19, status, "%d (%s%d%%%%)", 
+     mvwprintz(w_skills, 2 + i - min,19, status, "%d (%s%d%%%%)",
                sklevel[skillslist[i]],
                (skexercise[skillslist[i]] < 10 &&
                 skexercise[skillslist[i]] >= 0 ? " " : ""),
@@ -1321,7 +1322,7 @@ encumb(bp_feet) * 5);
    }
   }
  } while (!done);
- 
+
  werase(w_info);
  werase(w_grid);
  werase(w_stats);
@@ -1345,6 +1346,7 @@ encumb(bp_feet) * 5);
 
 void player::disp_morale()
 {
+ clear();
  WINDOW *w = newwin(25, 80, 0, 0);
  wborder(w, LINE_XOXO, LINE_XOXO, LINE_OXOX, LINE_OXOX,
             LINE_OXXO, LINE_OOXX, LINE_XXOO, LINE_XOOX );
@@ -1384,7 +1386,7 @@ void player::disp_morale()
  werase(w);
  delwin(w);
 }
- 
+
 
 void player::disp_status(WINDOW *w, game *g)
 {
@@ -1612,6 +1614,7 @@ void player::charge_power(int amount)
 
 void player::power_bionics(game *g)
 {
+ clear();
  WINDOW *wBio = newwin(25, 80, 0, 0);
  werase(wBio);
  std::vector <bionic> passive;
@@ -1833,7 +1836,7 @@ int player::throw_range(int index)
   return str_cur * 2 + sklevel[sk_throw];
  return ret;
 }
- 
+
 int player::ranged_dex_mod(bool real_life)
 {
  int dex = (real_life ? dex_cur : dex_max);
@@ -1881,7 +1884,7 @@ int player::throw_dex_mod(bool real_life)
   return 0;
  if (dex >= 10)
   return (real_life ? 0 - rng(0, dex - 9) : 9 - dex);
- 
+
  int deviation = 0;
  if (dex < 6)
   deviation = 3 * (8 - dex);
@@ -1995,7 +1998,7 @@ void player::hit(game *g, body_part bphurt, int side, int dam, int cut)
    g->z.push_back(snake);
   }
  }
-  
+
  if (has_trait(PF_PAINRESIST))
   painadd = (sqrt(double(cut)) + dam + cut) / (rng(4, 6));
  else
@@ -2016,7 +2019,7 @@ void player::hit(game *g, body_part bphurt, int side, int dam, int cut)
   }
 
  case bp_mouth: // Fall through to head damage
- case bp_head: 
+ case bp_head:
   pain++;
   hp_cur[hp_head] -= dam;
   if (hp_cur[hp_head] < 0)
@@ -2363,7 +2366,7 @@ void player::add_disease(dis_type type, int duration, game *g,
   }
   i++;
  }
- if (!found) {   
+ if (!found) {
   if (!is_npc())
    dis_msg(g, type);
   disease tmp(type, duration, intensity);
@@ -2935,7 +2938,7 @@ void player::add_morale(morale_type type, int bonus, int max_bonus,
   morale.push_back(tmp);
  }
 }
- 
+
 void player::sort_inv()
 {
  // guns ammo weaps armor food tools books other
@@ -2971,7 +2974,7 @@ void player::sort_inv()
 void player::i_add(item it)
 {
  last_item = itype_id(it.type->id);
- if (it.is_food() || it.is_ammo() || it.is_gun()  || it.is_armor() || 
+ if (it.is_food() || it.is_ammo() || it.is_gun()  || it.is_armor() ||
      it.is_book() || it.is_tool() || it.is_weap() || it.is_food_container())
   inv_sorted = false;
  if (it.is_ammo()) {	// Possibly combine with other ammo
@@ -3269,7 +3272,7 @@ void player::use_charges(itype_id it, int quantity)
    }
   }
  }
-  
+
  if (weapon.type->id == it) {
   if (weapon.charges > 0 && weapon.charges <= quantity) {
    quantity -= weapon.charges;
@@ -3380,7 +3383,7 @@ bool player::has_artifact_with(art_effect_passive effect)
  }
  return false;
 }
-   
+
 
 bool player::has_amount(itype_id it, int quantity)
 {
@@ -3628,7 +3631,7 @@ bool player::eat(game *g, int index)
   }
 // At this point, we've definitely eaten the item, so use up some turns.
   if (has_trait(PF_GOURMAND))
-   moves -= 150; 
+   moves -= 150;
   else
    moves -= 250;
 // If it's poisonous... poison us.  TODO: More several poison effects
@@ -3656,7 +3659,7 @@ bool player::eat(game *g, int index)
    } else if (comest->stim >= 10 && stim < comest->stim * 3)
     stim += comest->stim;
   }
- 
+
   iuse use;
   (use.*comest->use)(g, this, eaten, false);
   add_addiction(comest->add, comest->addict);
@@ -3701,7 +3704,7 @@ bool player::eat(game *g, int index)
     thirst = -20;
   }
  }
- 
+
  eaten->charges--;
  if (eaten->charges <= 0) {
   if (which == -1)
@@ -3973,7 +3976,7 @@ void player::use(game *g, char let)
   used = &copy;
   replace_item = true;
  }
- 
+
  if (used->is_null()) {
   g->add_msg("You do not have that item.");
   return;
@@ -4224,7 +4227,7 @@ void player::read(game *g, char ch)
  activity = player_activity(ACT_READ, time, index);
  moves = 0;
 }
- 
+
 void player::try_to_sleep(game *g)
 {
  if (g->m.ter(posx, posy) == t_bed)
@@ -4505,7 +4508,7 @@ void player::absorb(game *g, body_part bp, int &dam, int &cut)
  if (cut < 0)
   cut = 0;
 }
-  
+
 int player::resist(body_part bp)
 {
  int ret = 0;

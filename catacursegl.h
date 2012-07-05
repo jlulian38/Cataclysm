@@ -1,14 +1,29 @@
-#ifndef __CATACURSE__
-#define __CATACURSE__
+#ifndef _CATACURSEGL_H_
+#define _CATACURSEGL_H_
 
-#if !(defined TILES || defined GFX_GL)
+#if (defined TILES || defined GFX_GL)
+
 #if (defined _WIN32 || defined WINDOWS)
+    #define _WIN32_WINNT 0x0500
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+#endif
 
-#define _WIN32_WINNT 0x0500
-#define WIN32_LEAN_AND_MEAN
-//#define VC_EXTRALEAN
-#include <windows.h>
+#include <stdarg.h>
+#include "catatex.h"
 #include <stdio.h>
+
+void gfx_set_color_pal (int index);
+void gfx_set_color_argb (unsigned long argb);
+unsigned long gfx_fg_to_argb (int attrs);
+unsigned long gfx_bg_to_argb (int attrs);
+void gfx_set_color_fg (int attrs);
+void gfx_set_color_bg (int attrs);
+void gfx_draw_symbol (Texture &tex, int x, int y, int sym, bool tinted = false, bool mono = false);
+void gfx_draw_rectangle (int x, int y, int h, int w);
+void gfx_draw_symbol_with_bg (Texture &tex, int x, int y, int attrs, int sym);
+void gfx_refresh_screen ();
+
 typedef int	chtype;
 typedef unsigned short	attr_t;
 typedef unsigned int u_int32_t;
@@ -64,6 +79,8 @@ typedef struct {
   int cursorx;//x location of the cursor
   int cursory;//y location of the cursor
   curseline *line;
+  int offset_x; // horizontal offset in pixels on screen
+  int offset_y; // vertical offset in pixels on screen
 } WINDOW;
 
 #define	A_NORMAL	__NORMAL
@@ -111,7 +128,7 @@ typedef struct {
 //Curses Functions
 #define	ERR	(-1)			/* Error return. */
 #define	OK	(0)			/* Success return. */
-WINDOW *newwin(int nlines, int ncols, int begin_y, int begin_x);
+WINDOW *newwin(int nlines, int ncols, int begin_y, int begin_x, int offset_x_pix = 0, int offset_y_pix = 0);
 int delwin(WINDOW *win);
 int wborder(WINDOW *win, chtype ls, chtype rs, chtype ts, chtype bs, chtype tl, chtype tr, chtype bl, chtype br);
 int wrefresh(WINDOW *win);
@@ -147,14 +164,6 @@ int getmaxy(WINDOW *win);
 int move(int y, int x);
 void timeout(int delay);//PORTABILITY, DUMMY FUNCTION
 
-//Window Functions, Do not call these outside of catacurse.cpp
-void WinDestroy();
-bool WinCreate(bool initgl);
-void CheckMessages();
-int FindWin(WINDOW *wnd);
-LRESULT CALLBACK ProcessMessages(HWND__ *hWnd,u_int32_t Msg,WPARAM wParam, LPARAM lParam);
+#endif // (defined TILES || defined GFX_GL)
 
 #endif
-#endif
-#endif
-

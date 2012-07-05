@@ -50,7 +50,7 @@ recipes.push_back( new recipe(id, result, category, skill1, skill2, difficulty,\
        itm_knife_combat, -1, itm_machete, -1, itm_toolset, -1, NULL);
   COMP(itm_stick, 1, itm_broom, 1, itm_mop, 1, itm_2x4, 1, itm_bee_sting, 1,
        NULL);
-                                 
+
  RECIPE(itm_nailboard, CC_WEAPON, sk_null, sk_null, 0, 1000);
   TOOL(itm_hatchet, -1, itm_hammer, -1, itm_rock, -1, itm_toolset, -1, NULL);
   COMP(itm_2x4, 1, itm_bat, 1, NULL);
@@ -243,7 +243,7 @@ RECIPE(itm_c4, CC_WEAPON, sk_mechanics, sk_electronics, 4, 8000);
   TOOL(itm_rock, -1, itm_toolset, -1, NULL);
   COMP(itm_bottle_plastic, 1, NULL);
   COMP(itm_apple, 3, NULL);
- 
+
  RECIPE(itm_jerky, CC_FOOD, sk_cooking, sk_null, 2, 30000);
   TOOL(itm_hotplate, 10, itm_toolset, 5, itm_fire, -1, NULL);
   COMP(itm_salt_water, 1, itm_salt, 4, NULL);
@@ -664,6 +664,7 @@ void game::craft()
   add_msg("Your morale is too low to craft...");
   return;
  }
+ clear();
  WINDOW *w_head = newwin( 3, 80, 0, 0);
  WINDOW *w_data = newwin(22, 80, 3, 0);
  craft_cat tab = CC_WEAPON;

@@ -7,9 +7,12 @@
 #PROFILE = -pg
 
 ODIR = obj
+ODIRT = objt
 DDIR = .deps
+DDIRT = .depst
 
 TARGET = cataclysm
+TARGET_TILES = catatiles
 
 OS  = $(shell uname -o)
 CXX = g++
@@ -25,12 +28,19 @@ endif
 SOURCES = $(wildcard *.cpp)
 _OBJS = $(SOURCES:.cpp=.o)
 OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
-
-all: $(TARGET)
-	@
+OBJST = $(patsubst %,$(ODIRT)/%,$(_OBJS))
 
 $(TARGET): $(ODIR) $(DDIR) $(OBJS)
 	$(CXX) -o $(TARGET) $(CFLAGS) $(OBJS) $(LDFLAGS) 
+
+all: $(TARGET) $(TARGET_TILES)
+	@
+
+tiles: $(TARGET_TILES)
+	@
+
+$(TARGET_TILES): $(ODIRT) $(DDIRT) $(OBJST)
+	$(CXX) -o $(TARGET_TILES) $(CFLAGS) $(OBJST) -lGL
 
 $(ODIR):
 	mkdir $(ODIR)
@@ -41,7 +51,18 @@ $(DDIR):
 $(ODIR)/%.o: %.cpp
 	$(CXX) $(CFLAGS) -c $< -o $@
 
+$(ODIRT):
+	mkdir $(ODIRT)
+
+$(DDIRT):
+	@mkdir $(DDIRT)
+
+$(ODIRT)/%.o: %.cpp
+	$(CXX) $(CFLAGS) -DTILES -c $< -o $@
+
 clean:
 	rm -f $(TARGET) $(ODIR)/*.o
+	rm -f $(TARGET_TILES) $(ODIRT)/*.o
 
 -include $(SOURCES:%.cpp=$(DEPDIR)/%.P)
+

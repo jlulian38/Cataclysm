@@ -13,6 +13,9 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/stat.h>
+#ifdef TILES
+#include "catacurses.h"
+#endif
 
 #define MAX_MONSTERS_MOVING 40 // Efficiency!
 
@@ -37,6 +40,7 @@ game::game()
  init_construction(); // Set up constructables            (SEE construction.cpp)
  init_mutations();
  init_vehicles();     // Set up vehicles                  (SEE veh_typedef.cpp)
+
  load_keyboard_settings();
 
  gamemode = new special_game;	// Nothing, basically.
@@ -44,6 +48,24 @@ game::game()
  m = map(&itypes, &mapitems, &traps); // Init the root map with our vectors
 
 // Set up the main UI windows.
+// Aw hell, we getting ncursey up in here!
+#ifdef TILES
+ w_terrain = newwin(SEEY * 2 + 1, SEEX * 2 + 1, 0, 0);
+ werase(w_terrain);
+ w_minimap = newwin(7, 7, 0, 0, tiles.width*(SEEX * 2 + 1), 0);
+ werase(w_minimap);
+ w_HP = newwin(14, 7, 7, 0, tiles.width*(SEEX * 2 + 1), 0);
+ werase(w_HP);
+ w_moninfo = newwin(12, 48, 0, 7, tiles.width*(SEEX * 2 + 1), 0);
+ werase(w_moninfo);
+ w_messages = newwin(9, 48, 12, 7, tiles.width*(SEEX * 2 + 1), 0);
+ werase(w_messages);
+ w_status = newwin(4, 55, 21, 0, tiles.width*(SEEX * 2 + 1), 0);
+ werase(w_status);
+
+ tiles.init(this);
+
+#else
  w_terrain = newwin(SEEY * 2 + 1, SEEX * 2 + 1, 0, 0);
  werase(w_terrain);
  w_minimap = newwin(7, 7, 0, SEEX * 2 + 1);
@@ -56,6 +78,7 @@ game::game()
  werase(w_messages);
  w_status = newwin(4, 55, 21, SEEX * 2 + 1);
  werase(w_status);
+#endif
 // Even though we may already have 'd', nextinv will be incremented as needed
  nextinv = 'd';
  next_npc_id = 1;
@@ -459,7 +482,7 @@ void game::start_game()
  u.per_cur = u.per_max;
  u.int_cur = u.int_max;
  u.dex_cur = u.dex_max;
- nextspawn = int(turn);	
+ nextspawn = int(turn);
  temperature = 65; // Springtime-appropriate?
 
 // Put some NPCs in there!
@@ -500,7 +523,7 @@ void game::create_starting_npcs()
 
  active_npc.push_back(tmp);
 }
- 
+
 
 // MAIN GAME LOOP
 // Returns true if game is over (death, saved, quit, etc)
@@ -940,7 +963,7 @@ void game::assign_mission(int id)
  mission *miss = find_mission(id);
  (m_s.*miss->type->start)(this, miss);
 }
- 
+
 int game::reserve_mission(mission_id type, int npc_id)
 {
  mission tmp = mission_types[type].create(this, npc_id);
@@ -1449,7 +1472,12 @@ void game::get_input()
    break;
 
   case ACTION_DISPLAY_SCENT:
+#ifdef TILES
+    tiles.init (this);
+    draw ();
+#else
    display_scent();
+#endif
    break;
 
   case ACTION_TOGGLE_DEBUGMON:
@@ -1546,6 +1574,7 @@ void game::death_screen()
  for (int i = 0; i < num_monsters; i++)
   num_kills += kills[i];
 
+ clear();
  WINDOW* w_death = newwin(25, 80, 0, 0);
  mvwprintz(w_death, 0, 35, c_red, "GAME OVER - Press Spacebar to Quit");
  mvwprintz(w_death, 2, 0, c_white, "Number of kills: %d", num_kills);
@@ -2050,6 +2079,7 @@ void game::draw_overmap()
 
 void game::disp_kills()
 {
+ clear();
  WINDOW* w = newwin(25, 80, 0, 0);
  std::vector<mtype *> types;
  std::vector<int> count;
@@ -2109,6 +2139,7 @@ void game::disp_kills()
 
 void game::disp_NPCs()
 {
+ clear();
  WINDOW* w = newwin(25, 80, 0, 0);
  mvwprintz(w, 0, 0, c_white, "Your position: %d:%d", levx, levy);
  std::vector<npc*> closest;
@@ -2150,6 +2181,7 @@ faction* game::list_factions(std::string title)
   popup("You don't know of any factions.  Press Spacebar...");
   return NULL;
  }
+ clear();
  WINDOW* w_list = newwin(25,      MAX_FAC_NAME_SIZE, 0, 0);
  WINDOW* w_info = newwin(25, 80 - MAX_FAC_NAME_SIZE, 0, MAX_FAC_NAME_SIZE);
  int maxlength = 79 - MAX_FAC_NAME_SIZE;
@@ -2236,6 +2268,7 @@ faction* game::list_factions(std::string title)
 
 void game::list_missions()
 {
+ clear();
  WINDOW *w_missions = newwin(25, 80, 0, 0);
  int tab = 0, selection = 0;
  char ch;
@@ -2254,7 +2287,7 @@ void game::list_missions()
   for (int i = 0; i < umissions.size(); i++) {
    mission *miss = find_mission(umissions[i]);
    nc_color col = c_white;
-   if (i == u.active_mission && tab == 0) 
+   if (i == u.active_mission && tab == 0)
     col = c_ltred;
    if (selection == i)
     mvwprintz(w_missions, 3 + i, 0, hilite(col), miss->name().c_str());
@@ -2321,7 +2354,9 @@ void game::list_missions()
 void game::draw()
 {
  // Draw map
+#ifndef TILES
  werase(w_terrain);
+#endif
  draw_ter();
  draw_footsteps();
  mon_info();
@@ -2384,8 +2419,12 @@ void game::draw_ter()
    z[i].draw(w_terrain, u.posx, u.posy, false);
   else if (z[i].has_flag(MF_WARM) && distx <= SEEX && disty <= SEEY &&
            (u.has_active_bionic(bio_infrared) || u.has_trait(PF_INFRARED)))
-   mvwputch(w_terrain, SEEY + z[i].posy - u.posy, SEEX + z[i].posx - u.posx,
-            c_red, '?');
+#ifdef TILES
+   tiles.draw_cid ((SEEX + z[i].posx - u.posx) * tiles.width, (SEEY + z[i].posy - u.posy) * tiles.height,
+                   z[i].type->id, tiles.monster_cid, 0, 0xff2020, true);  // TODO: feature
+#else
+   m.putch (w_terrain, SEEY + z[i].posy - u.posy, SEEX + z[i].posx - u.posx, c_red, '?');
+#endif
  }
  // Draw NPCs
  for (int i = 0; i < active_npc.size(); i++) {
@@ -2401,18 +2440,17 @@ void game::draw_ter()
     if (scent(realx, realy) != 0) {
      int tempx = u.posx - realx, tempy = u.posy - realy;
      if (!(isBetween(tempx, -2, 2) && isBetween(tempy, -2, 2))) {
+      m.putch (w_terrain, realy + SEEY - u.posy,
+        realx + SEEX - u.posx, c_magenta, '#');
       if (mon_at(realx, realy) != -1)
-       mvwputch(w_terrain, realy + SEEY - u.posy, realx + SEEX - u.posx,
-                c_white, '?');
-      else
-       mvwputch(w_terrain, realy + SEEY - u.posy, realx + SEEX - u.posx,
-                c_magenta, '#');
+       m.putch(w_terrain, realy + SEEY - u.posy,
+         realx + SEEX - u.posx, c_white, '?');
      }
     }
    }
   }
  }
- wrefresh(w_terrain);
+ refresh_terrain();
  if (u.has_disease(DI_VISUALS))
   hallucinate();
 }
@@ -2595,13 +2633,18 @@ void game::hallucinate()
  for (int i = 0; i <= SEEX * 2 + 1; i++) {
   for (int j = 0; j <= SEEY * 2 + 1; j++) {
    if (one_in(10)) {
+#ifdef TILES
+    tiles.draw_cid (i*tiles.width, j*tiles.height, m.ter(i + rng(-2, 2), j + rng(-2, 2)),
+                    tiles.terrain_cid, gen_feature());
+#else
     char ter_sym = terlist[m.ter(i + rng(-2, 2), j + rng(-2, 2))].sym;
     nc_color ter_col = terlist[m.ter(i + rng(-2, 2), j + rng(-2, 2))].color;
-    mvwputch(w_terrain, j, i, ter_col, ter_sym);
+    m.putch(w_terrain, j, i, ter_col, ter_sym);
+#endif
    }
   }
  }
- wrefresh(w_terrain);
+ refresh_terrain();
 }
 
 unsigned char game::light_level()
@@ -2620,7 +2663,7 @@ unsigned char game::light_level()
  int flashlight = u.active_item_charges(itm_flashlight_on);
  //int light = u.light_items();
  if (ret < 10 && flashlight > 0) {
-/* additive so that low battery flashlights still increase the light level 
+/* additive so that low battery flashlights still increase the light level
 	rather than decrease it 						*/
   ret += flashlight;
   if (ret > 10)
@@ -2703,7 +2746,7 @@ faction* game::random_evil_faction()
 bool game::sees_u(int x, int y, int &t)
 {
  return (!u.has_active_bionic(bio_cloak) &&
-         !u.has_artifact_with(AEP_INVISIBLE) && 
+         !u.has_artifact_with(AEP_INVISIBLE) &&
          m.sees(x, y, u.posx, u.posy, light_level(), t));
 }
 
@@ -3106,7 +3149,7 @@ void game::check_warmth()
   add_msg("Your body is cold.");
   u.add_disease(DI_COLD, abs(warmth), this);
  } else if (warmth >= 12) {
-  add_msg("Your body is too hot."); 
+  add_msg("Your body is too hot.");
   u.add_disease(DI_HOT, warmth * 2, this);
  }
  // HANDS
@@ -3246,19 +3289,19 @@ void game::add_footstep(int x, int y, int volume, int distance)
 void game::draw_footsteps()
 {
  for (int i = 0; i < footsteps.size(); i++) {
-  mvwputch(w_terrain, SEEY + footsteps[i].y - u.posy, 
+  m.putch(w_terrain, SEEY + footsteps[i].y - u.posy,
            SEEX + footsteps[i].x - u.posx, c_yellow, '?');
  }
  footsteps.clear();
- wrefresh(w_terrain);
+ refresh_terrain();
  return;
 }
 
 void game::explosion(int x, int y, int power, int shrapnel, bool fire)
 {
- timespec ts;	// Timespec for the animation of the explosion
- ts.tv_sec = 0;
- ts.tv_nsec = EXPLOSION_SPEED;
+// timespec ts;	// Timespec for the animation of the explosion
+// ts.tv_sec = 0;
+// ts.tv_nsec = EXPLOSION_SPEED;
  int radius = sqrt(double(power / 4));
  int dam;
  std::string junk;
@@ -3324,18 +3367,19 @@ void game::explosion(int x, int y, int power, int shrapnel, bool fire)
  }
 // Draw the explosion
  for (int i = 1; i <= radius; i++) {
-  mvwputch(w_terrain, y - i + SEEY - u.posy, x - i + SEEX - u.posx, c_red, '/');
-  mvwputch(w_terrain, y - i + SEEY - u.posy, x + i + SEEX - u.posx, c_red,'\\');
-  mvwputch(w_terrain, y + i + SEEY - u.posy, x - i + SEEX - u.posx, c_red,'\\');
-  mvwputch(w_terrain, y + i + SEEY - u.posy, x + i + SEEX - u.posx, c_red, '/');
+  m.putch(w_terrain, y - i + SEEY - u.posy, x - i + SEEX - u.posx, c_red, '/');
+  m.putch(w_terrain, y - i + SEEY - u.posy, x + i + SEEX - u.posx, c_red,'\\');
+  m.putch(w_terrain, y + i + SEEY - u.posy, x - i + SEEX - u.posx, c_red,'\\');
+  m.putch(w_terrain, y + i + SEEY - u.posy, x + i + SEEX - u.posx, c_red, '/');
   for (int j = 1 - i; j < 0 + i; j++) {
-   mvwputch(w_terrain, y - i + SEEY - u.posy, x + j + SEEX - u.posx, c_red,'-');
-   mvwputch(w_terrain, y + i + SEEY - u.posy, x + j + SEEX - u.posx, c_red,'-');
-   mvwputch(w_terrain, y + j + SEEY - u.posy, x - i + SEEX - u.posx, c_red,'|');
-   mvwputch(w_terrain, y + j + SEEY - u.posy, x + i + SEEX - u.posx, c_red,'|');
+   m.putch(w_terrain, y - i + SEEY - u.posy, x + j + SEEX - u.posx, c_red,'-');
+   m.putch(w_terrain, y + i + SEEY - u.posy, x + j + SEEX - u.posx, c_red,'-');
+   m.putch(w_terrain, y + j + SEEY - u.posy, x - i + SEEX - u.posx, c_red,'|');
+   m.putch(w_terrain, y + j + SEEY - u.posy, x + i + SEEX - u.posx, c_red,'|');
   }
-  wrefresh(w_terrain);
-  nanosleep(&ts, NULL);
+  refresh_terrain();
+  animation_delay (EXPLOSION_SPEED);
+//  nanosleep(&ts, NULL);
  }
 
 // The rest of the function is shrapnel
@@ -3343,8 +3387,8 @@ void game::explosion(int x, int y, int power, int shrapnel, bool fire)
   return;
  int sx, sy, t, ijunk, tx, ty;
  std::vector<point> traj;
- ts.tv_sec = 0;
- ts.tv_nsec = BULLET_SPEED;	// Reset for animation of bullets
+// ts.tv_sec = 0;
+// ts.tv_nsec = BULLET_SPEED;	// Reset for animation of bullets
  for (int i = 0; i < shrapnel; i++) {
   sx = rng(x - 2 * radius, x + 2 * radius);
   sy = rng(y - 2 * radius, y + 2 * radius);
@@ -3357,10 +3401,11 @@ void game::explosion(int x, int y, int power, int shrapnel, bool fire)
    if (j > 0 && u_see(traj[j - 1].x, traj[j - 1].y, ijunk))
     m.drawsq(w_terrain, u, traj[j - 1].x, traj[j - 1].y, false, true);
    if (u_see(traj[j].x, traj[j].y, ijunk)) {
-    mvwputch(w_terrain, traj[j].y + SEEY - u.posy,
+    m.putch(w_terrain, traj[j].y + SEEY - u.posy,
                         traj[j].x + SEEX - u.posx, c_red, '`');
-    wrefresh(w_terrain);
-    nanosleep(&ts, NULL);
+    refresh_terrain();
+    animation_delay(BULLET_SPEED);
+//    nanosleep(&ts, NULL);
    }
    tx = traj[j].x;
    ty = traj[j].y;
@@ -3428,7 +3473,7 @@ void game::use_computer(int x, int y)
   debugmsg("Tried to use computer at (%d, %d) - none there", x, y);
   return;
  }
- 
+
  used->use(this);
 
  refresh_all();
@@ -3670,7 +3715,7 @@ void game::explode_mon(int index)
    for (int i = 0; i < num_chunks; i++) {
     int tarx = posx + rng(-3, 3), tary = posy + rng(-3, 3);
     std::vector<point> traj = line_to(posx, posy, tarx, tary, 0);
- 
+
     bool done = false;
     for (int j = 0; j < traj.size() && !done; j++) {
      tarx = traj[j].x;
@@ -4364,7 +4409,11 @@ point game::look_around()
  int lx = u.posx, ly = u.posy;
  int mx, my, junk;
  char ch;
+#ifdef TILES
+ WINDOW* w_look = newwin(13, 48, 12, 7, tiles.width*(SEEX*2+1), 0);
+#else
  WINDOW* w_look = newwin(13, 48, 12, SEEX * 2 + 8);
+#endif
  wborder(w_look, LINE_XOXO, LINE_XOXO, LINE_OXOX, LINE_OXOX,
                  LINE_OXXO, LINE_OOXX, LINE_XXOO, LINE_XOOX );
  mvwprintz(w_look, 1, 1, c_white, "Looking Around");
@@ -4374,7 +4423,7 @@ point game::look_around()
  do {
   ch = input();
   if (!u_see(lx, ly, junk))
-   mvwputch(w_terrain, ly - u.posy + SEEY, lx - u.posx + SEEX, c_black, ' ');
+   m.putch (w_terrain, ly - u.posy + SEEY, lx - u.posx + SEEX, c_black, ' ');
   draw_ter();
   get_direction(this, mx, my, ch);
   if (mx != -2 && my != -2) {	// Directional key pressed
@@ -4402,6 +4451,9 @@ point game::look_around()
     mvwprintw(w_look, 1, 1, "%s; Movement cost %d", m.tername(lx, ly).c_str(),
                                                     m.move_cost(lx, ly) * 50);
    mvwprintw(w_look, 2, 1, "%s", m.features(lx, ly).c_str());
+//   mvwprintw(w_look, 3, 1, "%1x", m.ter_conf(lx, ly));
+   mvwprintw(w_look, 11, 1, "%c%c%c%c", m.ter_conf(lx, ly) & tcf_w? 'w' : '-', m.ter_conf(lx, ly) & tcf_e? 'e' : '-',
+             m.ter_conf(lx, ly) & tcf_n? 'n' : '-', m.ter_conf(lx, ly) & tcf_s? 's' : '-');
    field tmpfield = m.field_at(lx, ly);
    if (tmpfield.type != fd_null)
     mvwprintz(w_look, 4, 1, fieldlist[tmpfield.type].color[tmpfield.density-1],
@@ -4440,7 +4492,7 @@ point game::look_around()
     m.drawsq(w_terrain, u, lx, ly, true, true);
 
   } else if (lx == u.posx && ly == u.posy) {
-   mvwputch_inv(w_terrain, SEEX, SEEY, u.color(), '@');
+   m.draw_player (w_terrain, u, 1);
    mvwprintw(w_look, 1, 1, "You (%s)", u.name.c_str());
    if (veh.type != veh_null) {
     mvwprintw(w_look, 3, 1, "There is a %s there. Parts:", veh.name.c_str());
@@ -4449,11 +4501,11 @@ point game::look_around()
    }
 
   } else {
-   mvwputch(w_terrain, ly - u.posy + SEEY, lx - u.posx + SEEX, c_white, 'x');
+   m.putch(w_terrain, ly - u.posy + SEEY, lx - u.posx + SEEX, c_white, 'x');
    mvwprintw(w_look, 1, 1, "Unseen.");
   }
   wrefresh(w_look);
-  wrefresh(w_terrain);
+  refresh_terrain();
  } while (ch != ' ' && ch != KEY_ESCAPE && ch != '\n');
  if (ch == '\n')
   return point(lx, ly);
@@ -4570,8 +4622,13 @@ void game::pickup(int posx, int posy, int min)
   return;
  }
 // Otherwise, we have 2 or more items and should list them, etc.
+#ifdef TILES
+ WINDOW* w_pickup = newwin(12, 48, 0, 7, tiles.width*(SEEX*2+1));
+ WINDOW* w_item_info = newwin(12, 48, 12, 7, tiles.width*(SEEX*2+1));
+#else
  WINDOW* w_pickup = newwin(12, 48, 0, SEEX * 2 + 8);
  WINDOW* w_item_info = newwin(12, 48, 12, SEEX * 2 + 8);
+#endif
  int maxitems = 9;	 // Number of items to show at one time.
  std::vector <item> here = from_veh? veh.parts[veh_part].items : m.i_at(posx, posy);
  bool getitem[here.size()];
@@ -5084,7 +5141,7 @@ void game::plthrow()
     if (k >= y0 && k <= y1 && j >= x0 && j <= x1)
      m.drawsq(w_terrain, u, j, k, false, true);
     else
-     mvwputch(w_terrain, k + SEEY - u.posy, j + SEEX - u.posx, c_dkgray, '#');
+     m.putch(w_terrain, k + SEEY - u.posy, j + SEEX - u.posx, c_dkgray, '#');
    }
   }
  }
@@ -5167,7 +5224,7 @@ void game::plfire(bool burst)
     if (k >= y0 && k <= y1 && j >= x0 && j <= x1)
      m.drawsq(w_terrain, u, j, k, false, true);
     else
-     mvwputch(w_terrain, k + SEEY - y, j + SEEX - x, c_dkgray, '#');
+     m.draw_fog (w_terrain, u, k + SEEY - y, j + SEEX - x, c_dkgray);
    }
   }
  }
@@ -5560,6 +5617,7 @@ void game::chat()
  } else if (available.size() == 1)
   available[0]->talk_to_u(this);
  else {
+  clear();
   WINDOW *w = newwin(available.size() + 3, 40, 10, 20);
   wborder(w, LINE_XOXO, LINE_XOXO, LINE_OXOX, LINE_OXOX,
              LINE_OXXO, LINE_OOXX, LINE_XXOO, LINE_XOOX );
@@ -6145,13 +6203,13 @@ void game::vertical_move(int movez, bool force)
    stairy = u.posy;
   }
  }
- 
+
  bool replace_monsters = false;
 // Replace the stair monsters if we just came back
  if (abs(monstairx - levx) <= 1 && abs(monstairy - levy) <= 1 &&
      monstairz == levz + movez)
   replace_monsters = true;
- 
+
  if (!force) {
   monstairx = levx;
   monstairy = levy;
@@ -6349,7 +6407,7 @@ void game::update_map(int &x, int &y)
  npc temp;
  for (int i = 0; i < cur_om.npcs.size(); i++) {
   if (rl_dist(levx + int(MAPSIZE / 2), levy + int(MAPSIZE / 2),
-              cur_om.npcs[i].mapx, cur_om.npcs[i].mapy) <= 
+              cur_om.npcs[i].mapx, cur_om.npcs[i].mapy) <=
               int(MAPSIZE / 2) + 1) {
    int dx = cur_om.npcs[i].mapx - levx, dy = cur_om.npcs[i].mapy - levy;
    if (debugmon)
@@ -6899,12 +6957,34 @@ void game::display_scent()
  for (int x = u.posx - SEEX; x <= u.posx + SEEX; x++) {
   for (int y = u.posy - SEEY; y <= u.posy + SEEY; y++) {
    int sn = scent(x, y) / (div * 2);
-   mvwprintz(w_terrain, SEEY + y - u.posy, SEEX + x - u.posx, sev(sn), "%d",
-             sn % 10);
+   m.putch(w_terrain, SEEY + y - u.posy, SEEX + x - u.posx, sev(sn), (char) (sn % 10 + '0'));
   }
  }
- wrefresh(w_terrain);
+ refresh_terrain();
  getch();
+}
+
+void animation_delay (unsigned long nanosec)
+{
+    timespec ts;
+    ts.tv_sec = 0;
+    ts.tv_nsec = nanosec;
+    nanosleep (&ts, 0);
+#ifdef GFX_GL
+    gfx_refresh_screen ();
+#endif
+}
+
+void game::refresh_terrain ()
+{
+#ifndef TILES
+    wrefresh (w_terrain);
+#endif
+}
+
+t_feature gen_feature ()
+{
+    return (t_feature) rand();
 }
 
 void intro()
@@ -6913,6 +6993,7 @@ void intro()
  getmaxyx(stdscr, maxy, maxx);
  WINDOW* tmp = newwin(25, 80, 0, 0);
  while (maxy < 25 || maxx < 80) {
+    printf ("max=%d,%d\n", maxx, maxy);
   werase(tmp);
   wprintw(tmp, "\
 Whoa. Whoa. Hey. This game requires a minimum terminal size of 80x25. I'm\n\

@@ -206,6 +206,7 @@ class game
   WINDOW *w_moninfo;
   WINDOW *w_messages;
   WINDOW *w_status;
+  void refresh_terrain (); // use this instead wrefresh(w_terrain)
 
  private:
 // Game-start procedures
@@ -359,5 +360,8 @@ class game
 
   special_game *gamemode;
 };
+
+void animation_delay (unsigned long nanosec);
+t_feature gen_feature ();
 
 #endif

@@ -67,9 +67,9 @@ void game::fire(player &p, int tarx, int tary, std::vector<point> &trajectory,
  // Make a sound at our location - Zombies will chase it
  make_gun_sound_effect(this, p, burst);
 // Set up a timespec for use in the nanosleep function below
- timespec ts;
- ts.tv_sec = 0;
- ts.tv_nsec = BULLET_SPEED;
+//  timespec ts;
+//  ts.tv_sec = 0;
+//  ts.tv_nsec = BULLET_SPEED;
 
 // Use up some ammunition
  if (p.weapon.has_flag(IF_FIRE_100))
@@ -173,12 +173,19 @@ void game::fire(player &p, int tarx, int tary, std::vector<point> &trajectory,
     char bullet = '*';
     if (flags & mfb(IF_AMMO_FLAME))
      bullet = '#';
-    mvwputch(w_terrain, trajectory[i].y + SEEY - u.posy,
+#ifdef TILES
+    tiles.draw_cid ((trajectory[i].x + SEEX - u.posx) * tiles.width,
+                    (trajectory[i].y + SEEY - u.posy) * tiles.height,
+                    bullet == '#'? scid_flame : scid_bullet, tiles.special_cid);
+#else
+    m.putch(w_terrain, trajectory[i].y + SEEY - u.posy,
                         trajectory[i].x + SEEX - u.posx, c_red, bullet);
-    wrefresh(w_terrain);
-    nanosleep(&ts, NULL);
+#endif
+    animation_delay(BULLET_SPEED);
+    refresh_terrain();
+//    nanosleep(&ts, NULL);
    }
-   
+
    if (dam <= 0) { // Ran out of momentum.
     ammo_effects(this, trajectory[i].x, trajectory[i].y, flags);
     if (is_bolt &&
@@ -430,7 +437,11 @@ std::vector<point> game::target(int &x, int &y, int lowx, int lowy, int hix,
  } else
   target = -1;	// No monsters in range, don't use target, reset to -1
 
+#ifdef TILES
+ WINDOW* w_target = newwin(13, 48, 12, 7, tiles.width*(SEEX * 2 + 1));
+#else
  WINDOW* w_target = newwin(13, 48, 12, SEEX * 2 + 8);
+#endif
  wborder(w_target, LINE_XOXO, LINE_XOXO, LINE_OXOX, LINE_OXOX,
                  LINE_OXXO, LINE_OOXX, LINE_XXOO, LINE_XOOX );
  if (!relevent) // currently targetting vehicle to refill with fuel
@@ -461,7 +472,7 @@ std::vector<point> game::target(int &x, int &y, int lowx, int lowy, int hix,
    for (int i = 0; i < ret.size(); i++)
     m.drawsq(w_terrain, u, ret[i].x, ret[i].y, false, true);
 // Draw the player
-   mvwputch(w_terrain, SEEX, SEEY, u.color(), '@');
+    m.draw_player (w_terrain, u);
 // Draw the Monsters
    for (int i = 0; i < z.size(); i++) {
     if (u_see(&(z[i]), tart) && z[i].posx >= lowx && z[i].posy >= lowy &&
@@ -485,7 +496,13 @@ std::vector<point> game::target(int &x, int &y, int lowx, int lowy, int hix,
        active_npc[npc_at(ret[i].x, ret[i].y)].draw(w_terrain, u.posx, u.posy,
                                                    true);
       else
-       m.drawsq(w_terrain, u, ret[i].x, ret[i].y, true, true);
+       m.drawsq(w_terrain, u, ret[i].x, ret[i].y,
+#ifdef TILES
+                i < ret.size() -1,
+#else
+                true,
+#endif
+                true);
      }
     }
    }
@@ -498,13 +515,18 @@ std::vector<point> game::target(int &x, int &y, int lowx, int lowy, int hix,
    else
     mvwprintw(w_target, 5, 1, "Range: %d", rl_dist(u.posx, u.posy, x, y));
    if (mon_at(x, y) == -1) {
-    mvwputch(w_terrain, y + SEEY - u.posy, x + SEEX - u.posx, c_red, '*');
+#ifdef TILES
+    if (x + SEEX - u.posx <= SEEX * 2)
+        tiles.draw_cid ((x + SEEX - u.posx) * tiles.width, (y + SEEY - u.posy) * tiles.height, scid_aim, tiles.special_cid);
+#else
+    m.putch(w_terrain, y + SEEY - u.posy, x + SEEX - u.posx, c_red, '*');
+#endif
     mvwprintw(w_status, 0, 9, "                             ");
    } else if (u_see(&(z[mon_at(x, y)]), tart))
     z[mon_at(x, y)].print_info(this, w_target);
    wrefresh(w_target);
   }
-  wrefresh(w_terrain);
+  refresh_terrain();
   wrefresh(w_status);
   refresh();
   ch = input();
@@ -513,7 +535,7 @@ std::vector<point> game::target(int &x, int &y, int lowx, int lowy, int hix,
    if (m.sees(u.posx, u.posy, x, y, -1, junk))
     m.drawsq(w_terrain, u, x, y, false, true);
    else
-    mvwputch(w_terrain, y + SEEY - u.posy, x + SEEX - u.posx, c_black, 'X');
+    m.putch (w_terrain, y + SEEY - u.posy, x + SEEX - u.posx, c_black, 'X');
    x += tarx;
    y += tary;
    if (x < lowx)

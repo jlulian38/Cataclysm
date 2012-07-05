@@ -48,6 +48,7 @@ void save_template(player *u);
 
 bool player::create(game *g, character_type type, std::string tempname)
 {
+// clear();
  WINDOW* w = newwin(25, 80, 0, 0);
  int tab = 0, points = 38;
  if (type != PLTYPE_CUSTOM) {
@@ -66,7 +67,7 @@ bool player::create(game *g, character_type type, std::string tempname)
      points -= (int_max - HIGH_STAT);
     if (per_max > HIGH_STAT)
      points -= (per_max - HIGH_STAT);
- 
+
     int num_gtraits = 0, num_btraits = 0, rn, tries;
     while (points < 0 || rng(-3, 20) > points) {
      if (num_btraits < MAX_TRAIT_POINTS && one_in(3)) {
@@ -159,7 +160,7 @@ bool player::create(game *g, character_type type, std::string tempname)
 
  if (tab < 0)
   return false;
- 
+
  // Character is finalized.  Now just set up HP, &c
  for (int i = 0; i < num_hp_parts; i++) {
   hp_max[i] = calc_HP(str_max, has_trait(PF_TOUGH));
@@ -404,7 +405,7 @@ int set_stats(WINDOW* w, player *u, int &points)
    mvwprintz(w,11, 33, COL_STAT_ACT, "                                            ");
    break;
   }
- 
+
   wrefresh(w);
   ch = input();
   if (ch == 'j' && sel < 4)
@@ -702,7 +703,7 @@ int set_skills(WINDOW* w, player *u, int &points)
  mvwputch(w, 2,57, c_ltgray, LINE_XXOX);
  mvwputch(w, 2,73, c_ltgray, LINE_XXOX);
  mvwprintz(w,1,40, h_ltgray, "  SKILLS  ");
- 
+
  int cur_sk = 1;
 
  do {
@@ -768,7 +769,7 @@ int set_skills(WINDOW* w, player *u, int &points)
     }
    }
   }
-   
+
   wrefresh(w);
   switch (input()) {
    case 'j':
@@ -832,7 +833,7 @@ When your character is finished and you're ready to start playing, press >");
 To go back and review your character, press <");
  mvwprintz(w, 14, 2, c_green, "\
 To save this character as a template, press !.");
- 
+
  int line = 1;
  bool noname = false;
  long ch;
