@@ -506,14 +506,14 @@ std::vector<point> game::target(int &x, int &y, int lowx, int lowy, int hix,
      }
     }
    }
-   if (!relevent) // currently targetting vehicle to refill with fuel
-   {
-    vehicle &veh = m.veh_at (x, y);
-    if (veh.type != veh_null)
-        mvwprintw(w_target, 5, 1, "There is a %s", veh.name.c_str());
-   }
-   else
+
+   if (!relevent) { // currently targetting vehicle to refill with fuel
+    vehicle *veh = m.veh_at(x, y);
+    if (veh)
+     mvwprintw(w_target, 5, 1, "There is a %s", veh->name.c_str());
+   } else
     mvwprintw(w_target, 5, 1, "Range: %d", rl_dist(u.posx, u.posy, x, y));
+
    if (mon_at(x, y) == -1) {
 #ifdef TILES
     if (x + SEEX - u.posx <= SEEX * 2)
@@ -862,6 +862,7 @@ void shoot_player(game *g, player &p, player *h, int &dam, double goodhit)
                h->name.c_str(), body_part_name(hit, side).c_str());
   }
   h->hit(g, hit, side, 0, dam);
+/*
   if (h != &(g->u)) {
    int npcdex = g->npc_at(h->posx, h->posy);
    if (g->active_npc[npcdex].hp_cur[hp_head]  <= 0 ||
@@ -870,6 +871,7 @@ void shoot_player(game *g, player &p, player *h, int &dam, double goodhit)
     g->active_npc.erase(g->active_npc.begin() + npcdex);
    }
   }
+*/
  }
 }
 

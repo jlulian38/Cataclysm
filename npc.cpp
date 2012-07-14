@@ -125,6 +125,8 @@ npc& npc::operator= (npc &rhs)
  for (int i = 0; i < rhs.styles.size(); i++)
   styles.push_back(rhs.styles[i]);
 
+ combat_rules = rhs.combat_rules;
+ 
  marked_for_death = rhs.marked_for_death;
  dead = rhs.dead;
 
@@ -193,6 +195,8 @@ npc& npc::operator= (const npc &rhs)
  for (int i = 0; i < rhs.styles.size(); i++)
   styles.push_back(rhs.styles[i]);
 
+ combat_rules = rhs.combat_rules;
+ 
  marked_for_death = rhs.marked_for_death;
  dead = rhs.dead;
 
@@ -250,8 +254,7 @@ std::string npc::save_info()
  else
   dump << my_fac->id;
  dump << " " << attitude << " " << " " << op_of_u.save_info() << " " <<
-         chatbin.save_info();
-
+         chatbin.save_info() << " ";
 // Inventory size, plus armor size, plus 1 for the weapon
  dump << std::endl << inv.num_items() + worn.size() + 1 << std::endl;
  for (int i = 0; i < inv.size(); i++) {
@@ -356,6 +359,7 @@ void npc::load_info(game *g, std::string data)
 
  op_of_u.load_info(dump);
  chatbin.load_info(dump);
+ combat_rules.load_info(dump);
 }
 
 void npc::randomize(game *g, npc_class type)
@@ -398,8 +402,11 @@ void npc::randomize(game *g, npc_class type)
   break;
 
  case NC_HACKER:
-  for (int i = 1; i < num_skill_types; i++)
+  for (int i = 1; i < num_skill_types; i++) {
    sklevel[i] = dice(2, 2) - rng(1, 2);
+   if (!one_in(3))
+    sklevel[i] = 0;
+  }
   sklevel[sk_electronics] += rng(1, 4);
   sklevel[sk_computer] += rng(3, 6);
   str_max -= rng(0, 4);
@@ -411,8 +418,11 @@ void npc::randomize(game *g, npc_class type)
   break;
 
  case NC_DOCTOR:
-  for (int i = 1; i < num_skill_types; i++)
+  for (int i = 1; i < num_skill_types; i++) {
    sklevel[i] = dice(3, 2) - rng(1, 3);
+   if (!one_in(3))
+    sklevel[i] = 0;
+  }
   sklevel[sk_firstaid] += rng(2, 6);
   str_max -= rng(0, 2);
   int_max += rng(0, 2);
@@ -424,8 +434,11 @@ void npc::randomize(game *g, npc_class type)
   break;
 
  case NC_TRADER:
-  for (int i = 1; i < num_skill_types; i++)
+  for (int i = 1; i < num_skill_types; i++) {
    sklevel[i] = dice(2, 2) - 2 + (rng(0, 1) * rng(0, 1));
+   if (!one_in(3))
+    sklevel[i] = 0;
+  }
   sklevel[sk_mechanics] += rng(0, 2);
   sklevel[sk_electronics] +=  rng(0, 2);
   sklevel[sk_speech] += rng(0, 3);
@@ -437,8 +450,11 @@ void npc::randomize(game *g, npc_class type)
   break;
 
  case NC_NINJA:
-  for (int i = 1; i < num_skill_types; i++)
+  for (int i = 1; i < num_skill_types; i++) {
    sklevel[i] = dice(2, 2) - rng(1, 2);
+   if (!one_in(3))
+    sklevel[i] = 0;
+  }
   sklevel[sk_dodge] += rng(2, 4);
   sklevel[sk_melee] += rng(1, 4);
   sklevel[sk_unarmed] += rng(4, 6);
@@ -1083,13 +1099,6 @@ std::vector<item> starting_inv(npc *me, npc_class type, game *g)
  return ret;
 }
 
-void npc::pick_name()
-{
- std::stringstream ss;
- ss << random_first_name(male) << " " << random_last_name();
- name = ss.str();
-}
-
 void npc::spawn_at(overmap *o, int x, int y)
 {
 // First, specify that we are in this overmap!
@@ -1228,13 +1237,13 @@ bool npc::wield(game *g, int index)
    debugmsg("npc::wield(%d) [styles.size() = %d]", index, styles.size());
    return false;
   }
-  weapon.make( g->itypes[styles[index]] );
   if (volume_carried() + weapon.volume() <= volume_capacity()) {
    i_add(remove_weapon());
-   moves -= 15;
+   moves -= 15; // Extra penalty for putting weapon away
   } else // No room for weapon, so we drop it
    g->m.add_item(posx, posy, remove_weapon());
   moves -= 15;
+  weapon.make( g->itypes[styles[index]] );
   int linet;
   if (g->u_see(posx, posy, linet))
    g->add_msg("%s assumes a %s stance.", name.c_str(), weapon.tname().c_str());
@@ -1982,7 +1991,8 @@ void npc::print_info(WINDOW* w)
  int line = 8;
  size_t split;
  do {
-  split = wearing.find_last_of(' ', 46);
+  split = (wearing.length() <= 46) ? std::string::npos :
+                                     wearing.find_last_of(' ', 46);
   if (split == std::string::npos)
    mvwprintz(w, line, 1, c_blue, wearing.c_str());
   else
@@ -2123,46 +2133,6 @@ void npc::die(game *g, bool your_fault)
    g->fail_mission( g->active_missions[i].uid );
  }
 
-}
-
-std::string random_first_name(bool male)
-{
- std::ifstream fin;
- std::string name;
- char buff[256];
- if (male)
-  fin.open("data/NAMES_MALE");
- else
-  fin.open("data/NAMES_FEMALE");
- if (!fin.is_open()) {
-  debugmsg("Could not open npc first names list (%s)",
-           (male ? "NAMES_MALE" : "NAMES_FEMALE"));
-  return "";
- }
- int line = rng(1, 100);	// TODO: Don't assume 100 first names.
- for (int i = 0; i < line; i++)
-  fin.getline(buff, 256);
- name = buff;
- fin.close();
- return name;
-}
-
-std::string random_last_name()
-{
- std::string lastname;
- std::ifstream fin;
- fin.open("data/NAMES_LAST");
- if (!fin.is_open()) {
-  debugmsg("Could not open npc last names list (NAMES_LAST)");
-  return "";
- }
- int line = rng(1, 100);	// TODO: Shouldn't assume 100 last names.
- char buff[256];
- for (int i = 0; i < line; i++)
-  fin.getline(buff, 256);
- lastname = buff;
- fin.close();
- return lastname;
 }
 
 std::string npc_attitude_name(npc_attitude att)

@@ -235,7 +235,7 @@ bool cata_tiles::init (game *g)
         return false;
     }
 
-    bool print_list = true;
+    bool print_list = false;
     std::ofstream fout;
     if (print_list)
     {
