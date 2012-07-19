@@ -644,6 +644,12 @@ void map::set_ter_conf ()
 
 bool map::is_ter_connects (ter_id t, ter_id t2)
 {
+    if (t < 0 || t >= num_terrain_types ||
+        t2 < 0 || t2 >= num_terrain_types)
+    {
+        debugmsg ("map::is_ter_connects t1=%d t2=%d num_ter=%d", t, t2, num_terrain_types);
+        return false;
+    }
     if (t == t2)
         return true;
     if (t == t_wall || t == t_wall_metal)
