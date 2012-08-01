@@ -221,6 +221,7 @@ void cata_tiles::clear ()
     fieldlap_cid.clear();
     backup_font.clear ();
     over_terrains.clear ();
+    over_terrain_names.clear ();
 }
 
 //----------------------------------------------------------------------------
@@ -256,26 +257,16 @@ bool cata_tiles::init (game *g)
         fout << "# Fields" << std::endl;
         fout << "fld=.tga" << std::endl;
     }
+	
+	// list of terrains which could overlap others and be overlapped
+	for (int i = 0; i < over_terrain_names.size(); i++)
+		for (int j = 0; j < num_terrain_types; j++)
+			if (over_terrain_names[i] == terlist[j].name)
+			{
+				over_terrains.push_back (j);
+			}
 
-    // list of terrains which could overlap others and be overlapped
-    over_terrains.push_back (t_hole);
-    over_terrains.push_back (t_water_dp);
-    over_terrains.push_back (t_water_sh);
-    over_terrains.push_back (t_slime);
-    over_terrains.push_back (t_sewage);
-    over_terrains.push_back (t_dirt);
-    over_terrains.push_back (t_grass);
-    over_terrains.push_back (t_pavement);
-    over_terrains.push_back (t_pavement_y);
-    over_terrains.push_back (t_sidewalk);
-    over_terrains.push_back (t_floor_wax);
-    over_terrains.push_back (t_rock_floor);
-    over_terrains.push_back (t_metal_floor);
-    over_terrains.push_back (t_floor);
-    over_terrains.push_back (t_lava);
-    over_terrains.push_back (t_rock);
-
-    if (print_list)
+				if (print_list)
         fout << std::endl << "# Specials:" << std::endl;
     for (int i = 0; i < scid_total; i++)
     {
@@ -448,6 +439,12 @@ bool cata_tiles::parse_line (std::string line, bool preinit)
         backup_font.setup_symbols (backup_font_name.c_str());//, width, height);
         return true;
     }
+	else
+    if (is_names_equal (key, "overlap_list"))
+	{
+		over_terrain_names.push_back (val);
+		return true;
+	}
 
     int ntga = val.rfind (".tga");
     if (ntga == val.length() - 4)

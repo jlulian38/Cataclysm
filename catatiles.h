@@ -102,7 +102,9 @@ public:
     // a list of terrains which can be overlapped (base terrains)
     // in the order of overlapping
     std::vector<int> over_terrains;
-
+	// as above, but ingame names. used at catatiles initialization
+    std::vector<std::string> over_terrain_names;
+	
     cata_tiles ();
     ~cata_tiles ();
     bool init (game *g);
