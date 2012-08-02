@@ -257,7 +257,7 @@ bool cata_tiles::init (game *g)
         fout << "# Fields" << std::endl;
         fout << "fld=.tga" << std::endl;
     }
-	
+
 	// list of terrains which could overlap others and be overlapped
 	for (int i = 0; i < over_terrain_names.size(); i++)
 		for (int j = 0; j < num_terrain_types; j++)
@@ -716,23 +716,25 @@ void cata_tiles::draw_overlaps (int x, int y, map *m, int mx, int my, unsigned l
 {
     //       x  y
     ter_id t[3][3]; // nearby tiles
-    int   ot[3][3]; // over_terrains index of nearby tiles
+    int   ot[3][3]; // over_terrains index of nearby tiles ground
+    int   ot1[3][3]; // over_terrains index of nearby tiles terrain objects: trees, etc. (what's not ground)
     for (int iy = 0; iy < 3; iy++)
         for (int ix = 0; ix < 3; ix++)
         {
             t[ix][iy] = m->ter(mx + ix - 1, my + iy - 1);
             ot[ix][iy] = -1;
+            ot1[ix][iy] = -1;
             for (int i = 0; i < over_terrains.size(); i++)
+            {
                 if (over_terrains[i] == terlist[t[ix][iy]].base_terrain)
-                {
                     ot[ix][iy] = i;
-                    break;
-                }
+                if (over_terrains[i] == t[ix][iy])
+                    ot1[ix][iy] = i;
+            }
         }
     // if central square can't be overlapped, we're done
     if (ot[1][1] < 0)
         return;
-
     // here's how patterns and masks work:
     // every direction is assigned a bit
     // bits:
@@ -761,6 +763,31 @@ void cata_tiles::draw_overlaps (int x, int y, map *m, int mx, int my, unsigned l
         if (ot[2][2] == i) ter_bits |= tcf_se;
         if (ot[1][2] == i) ter_bits |= tcf_s;
         if (ot[0][2] == i) ter_bits |= tcf_sw;
+        for (int j = 0; j < tolc_total; j++)
+        {
+            int num = i * tolc_total + j;
+            if (((ter_bits & overlap_info[j].mask) == overlap_info[j].pattern) &&
+                overlap_cid[num].cid >= 0)
+                draw_cid (x, y, num, overlap_cid, m->ter_feature(mx, my), tint, mono);
+
+        }
+    }
+    // and another loop for non-ground terrain
+    for (int i = 0; i < over_terrains.size(); i++)
+    {
+        // overlap only if terrain of interest is lower in list than
+        // terrain of central tile
+        if (ot1[1][1] >= i)
+            continue;
+        int ter_bits = 0;
+        if (ot1[0][1] == i) ter_bits |= tcf_w;
+        if (ot1[0][0] == i) ter_bits |= tcf_nw;
+        if (ot1[1][0] == i) ter_bits |= tcf_n;
+        if (ot1[2][0] == i) ter_bits |= tcf_ne;
+        if (ot1[2][1] == i) ter_bits |= tcf_e;
+        if (ot1[2][2] == i) ter_bits |= tcf_se;
+        if (ot1[1][2] == i) ter_bits |= tcf_s;
+        if (ot1[0][2] == i) ter_bits |= tcf_sw;
         for (int j = 0; j < tolc_total; j++)
         {
             int num = i * tolc_total + j;
