@@ -11,9 +11,10 @@ DDIR = .deps
 
 TARGET = cataclysm.exe
 
-CXX = i486-mingw32-g++
+PREFIX = i586-mingw32msvc-
+CXX = $(PREFIX)g++
 
-LINKER = i486-mingw32-ld
+LINKER = $(PREFIX)ld
 LINKERFLAGS = -Wl,-stack,12000000,-subsystem,windows
 
 CFLAGS = $(WARNINGS) $(DEBUG) $(PROFILE)
