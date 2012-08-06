@@ -67,7 +67,7 @@ void print_inv_statics(game *g, WINDOW* w_inv, std::string title,
              g->u.worn[i].tname(g).c_str());
  }
 }
- 
+
 std::vector<int> find_firsts(inventory &inv)
 {
  std::vector<int> firsts;
@@ -97,10 +97,11 @@ std::vector<int> find_firsts(inventory &inv)
 
  return firsts;
 }
- 
+
 // Display current inventory.
 char game::inv(std::string title)
 {
+ clear();
  WINDOW* w_inv = newwin(25, 80, 0, 0);
  const int maxitems = 20;	// Number of items to show at one time.
  char ch = '.';
@@ -275,7 +276,7 @@ std::vector<item> game::multidrop()
    }
    count = 0;
   }
-   
+
  } while (ch != '\n' && ch != KEY_ESCAPE && ch != ' ');
  werase(w_inv);
  delwin(w_inv);

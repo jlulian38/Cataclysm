@@ -126,7 +126,7 @@ void game::init_construction()
 
 /*  Removed until we have some way of auto-aligning fences!
  CONSTRUCT("Build Fence", 1, 15, &construct::able_empty);
-  STAGE(t_fence_h, 10);
+  STAGE(t_fence, 10);
    TOOL(itm_hammer, itm_hatchet, NULL);
    COMP(itm_2x4, 5, itm_nail, 8, NULL);
 */
@@ -146,6 +146,7 @@ void game::init_construction()
 
 void game::construction_menu()
 {
+ clear();
  WINDOW *w_con = newwin(25, 80, 0, 0);
  wborder(w_con, LINE_XOXO, LINE_XOXO, LINE_OXOX, LINE_OXOX,
                 LINE_OXXO, LINE_OOXX, LINE_XXOO, LINE_XOOX );
@@ -297,7 +298,7 @@ void game::construction_menu()
    }
    wrefresh(w_con);
   } // Finished updating
- 
+
   ch = input();
   switch (ch) {
    case 'j':
@@ -406,7 +407,7 @@ void game::place_construction(constructable *con)
     if (max_stage >= starting_stage) {
      valid.push_back(point(x, y));
      m.drawsq(w_terrain, u, x, y, true, false);
-     wrefresh(w_terrain);
+     refresh_terrain();
     }
    }
   }
@@ -466,7 +467,7 @@ void game::complete_construction()
   if (!stage.components[i].empty())
    consume_items(this, stage.components[i]);
  }
- 
+
 // Make the terrain change
  int terx = u.activity.placement.x, tery = u.activity.placement.y;
  if (stage.terrain != t_null)
@@ -534,7 +535,7 @@ bool construct::able_door_broken(game *g, point p)
 
 bool construct::able_wall(game *g, point p)
 {
- return (g->m.ter(p.x, p.y) == t_wall_h || g->m.ter(p.x, p.y) == t_wall_v ||
+ return (g->m.ter(p.x, p.y) == t_wall || g->m.ter(p.x, p.y) == t_wall ||
          g->m.ter(p.x, p.y) == t_wall_wood);
 }
 

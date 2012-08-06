@@ -103,6 +103,7 @@ void npc::talk_to_u(game *g)
  moves -= 100;
  decide_needs();
 
+ clear();
  d.win = newwin(25, 80, 0, 0);
  wborder(d.win, LINE_XOXO, LINE_XOXO, LINE_OXOX, LINE_OXOX,
                 LINE_OXXO, LINE_OOXX, LINE_XXOO, LINE_XOOX );
@@ -114,7 +115,7 @@ void npc::talk_to_u(game *g)
  mvwprintz(d.win, 1, 43, c_white, "Your response:");
 
 // Main dialogue loop
- do { 
+ do {
   talk_topic next = d.opt(d.topic_stack.back(), g);
   if (next == TALK_NONE) {
    int cat = topic_category(d.topic_stack.back());
@@ -165,7 +166,7 @@ std::string dynamic_line(talk_topic topic, game *g, npc *p)
   return ret;
 
  }
-  
+
  switch (topic) {
  case TALK_NONE:
  case TALK_DONE:
@@ -1285,7 +1286,7 @@ void talk_function::start_trade(game *g, npc *p)
  p->op_of_u.owed = 0;
  trade(g, p, trade_amount, "Trade");
 }
- 
+
 void talk_function::give_equipment(game *g, npc *p)
 {
  std::vector<int> giving;
@@ -1507,7 +1508,7 @@ void parse_tags(std::string &phrase, player *u, npc *me)
  } while (fa != std::string::npos && fb != std::string::npos);
 }
 
- 
+
 talk_topic dialogue::opt(talk_topic topic, game *g)
 {
  std::string challenge = dynamic_line(topic, g, beta);
@@ -1529,7 +1530,7 @@ talk_topic dialogue::opt(talk_topic topic, game *g)
  else
   challenge = beta->name + ": " + challenge;
  history.push_back(""); // Empty line between lines of dialogue
- 
+
 // Number of lines to highlight
  int hilight_lines = 1;
  size_t split;
@@ -1561,7 +1562,7 @@ talk_topic dialogue::opt(talk_topic topic, game *g)
   else
    colors.push_back(c_white);
  }
-  
+
  for (int i = 2; i < 24; i++) {
   for (int j = 1; j < 79; j++) {
    if (j != 41)
@@ -1680,6 +1681,7 @@ talk_topic special_talk(char ch)
 
 bool trade(game *g, npc *p, int cost, std::string deal)
 {
+ clear();
  WINDOW* w_head = newwin( 4, 80,  0,  0);
  WINDOW* w_them = newwin(21, 40,  4,  0);
  WINDOW* w_you  = newwin(21, 40,  4, 40);
@@ -1693,8 +1695,8 @@ Tab key to switch lists, letters to pick items, Enter to finalize, Esc to quit\n
  for (int i = 0; i < 80; i++)
   mvwputch(w_head,  3, i, c_white, LINE_OXOX);
  wrefresh(w_head);
- 
-  
+
+
 // End of line drawings
 
 // Populate the list of what the NPC is willing to buy, and the prices they pay
@@ -1721,7 +1723,7 @@ Tab key to switch lists, letters to pick items, Enter to finalize, Esc to quit\n
  bool update = true;		// Re-draw the screen?
  int  them_off = 0, you_off = 0;// Offset from the start of the list
  char ch, help;
- 
+
  do {
   if (update) {	// Time to re-draw
    update = false;

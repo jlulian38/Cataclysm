@@ -214,7 +214,8 @@ std::string npc::save_info()
          pkill << " " <<  radiation << " " << cash << " " << recoil << " " <<
          scent << " " << moves << " " << underwater << " " << dodges_left <<
          " " << oxygen << " " << (marked_for_death ? "1" : "0") << " " <<
-         (dead ? "1" : "0") << " " << myclass << " " << patience << " ";
+         (dead ? "1" : "0") << " " << myclass << " " << feature << " " << patience << " ";
+
 
  for (int i = 0; i < PF_MAX2; i++)
   dump << my_traits[i] << " ";
@@ -254,9 +255,6 @@ std::string npc::save_info()
   dump << my_fac->id;
  dump << " " << attitude << " " << " " << op_of_u.save_info() << " " <<
          chatbin.save_info() << " ";
-
- dump << combat_rules.save_info();
- 
 // Inventory size, plus armor size, plus 1 for the weapon
  dump << std::endl << inv.num_items() + worn.size() + 1 << std::endl;
  for (int i = 0; i < inv.size(); i++) {
@@ -293,7 +291,7 @@ void npc::load_info(game *g, std::string data)
          int_cur >> int_max >> per_cur >> per_max >> hunger >> thirst >>
          fatigue >> stim >> pain >> pkill >> radiation >> cash >> recoil >>
          scent >> moves >> underwater >> dodges_left >> oxygen >> deathtmp >>
-         deadtmp >> classtmp >> patience;
+         deadtmp >> classtmp >> feature >> patience;
 
  if (deathtmp == 1)
   marked_for_death = true;
@@ -687,7 +685,7 @@ void npc::randomize_from_faction(game *g, faction *fac)
    case 4: sklevel[sk_tailor] += dice(2,  4);		break;
   }
  }
-   
+
  if (fac->has_value(FACVAL_CHARITABLE)) {
   personality.aggression -= rng(2, 5);
   personality.bravery += rng(0, 4);
@@ -1097,7 +1095,7 @@ std::vector<item> starting_inv(npc *me, npc_class type, game *g)
    }
   }
  }
- 
+
  return ret;
 }
 
@@ -1229,7 +1227,7 @@ bool npc::wear_if_wanted(item it)
   }
  }
  return false;
-} 
+}
 
 bool npc::wield(game *g, int index)
 {
@@ -1819,14 +1817,14 @@ int npc::danger_assessment(game *g)
   if (rl_dist(posx, posy, g->u.posx, g->u.posy) < 10) {
    if (g->u.weapon.is_gun())
     ret += 10;
-   else 
+   else
     ret += 10 - rl_dist(posx, posy, g->u.posx, g->u.posy);
   }
  } else if (is_friend()) {
   if (rl_dist(posx, posy, g->u.posx, g->u.posy) < 8) {
    if (g->u.weapon.is_gun())
     ret -= 8;
-   else 
+   else
     ret -= 8 - rl_dist(posx, posy, g->u.posx, g->u.posy);
   }
  }
@@ -1907,7 +1905,7 @@ void npc::told_to_wait(game *g)
   say(g, "No way, man!");
  }
 }
- 
+
 void npc::told_to_leave(game *g)
 {
  if (!is_following()) {
@@ -1941,6 +1939,19 @@ int npc::speed_estimate(int speed)
  return rng(low, high);
 }
 
+#ifdef TILES
+void npc::draw(WINDOW* w, int ux, int uy, bool inv)
+{
+ int x = (SEEX + posx - ux);
+ int y = (SEEY + posy - uy);
+ if (x < 0 || x > SEEX * 2 ||
+     y < 0 || y > SEEY * 2)
+     return;
+ tiles.draw_cid (x * tiles.width, y * tiles.height, scid_npc, tiles.special_cid, feature);
+ if (inv)
+    tiles.draw_cid (x * tiles.width, y * tiles.height, scid_select, tiles.special_cid);
+}
+#else
 void npc::draw(WINDOW* w, int ux, int uy, bool inv)
 {
  int x = SEEX + posx - ux;
@@ -1957,6 +1968,7 @@ void npc::draw(WINDOW* w, int ux, int uy, bool inv)
  else
   mvwputch    (w, y, x, col, '@');
 }
+#endif
 
 void npc::print_info(WINDOW* w)
 {
@@ -2120,7 +2132,7 @@ void npc::die(game *g, bool your_fault)
   if (g->active_missions[i].npc_id == id)
    g->fail_mission( g->active_missions[i].uid );
  }
-  
+
 }
 
 std::string npc_attitude_name(npc_attitude att)

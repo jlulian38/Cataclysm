@@ -8,11 +8,7 @@
 #include <sstream>
 #include <stdlib.h>
 
-#if (defined _WIN32 || defined WINDOWS)
-	#include "catacurse.h"
-#else
-	#include <curses.h>
-#endif
+#include "catacurses.h"
 
 #define SGN(a) (((a)<0) ? -1 : 1)
 #define SQR(a) ((a)*(a))
@@ -39,6 +35,7 @@ monster::monster()
  dead = false;
  made_footstep = false;
  unique_name = "";
+ feature = gen_feature();
 }
 
 monster::monster(mtype *t)
@@ -65,6 +62,7 @@ monster::monster(mtype *t)
  dead = false;
  made_footstep = false;
  unique_name = "";
+ feature = gen_feature();
 }
 
 monster::monster(mtype *t, int x, int y)
@@ -91,6 +89,7 @@ monster::monster(mtype *t, int x, int y)
  dead = false;
  made_footstep = false;
  unique_name = "";
+ feature = gen_feature();
 }
 
 void monster::poly(mtype *t)
@@ -109,6 +108,7 @@ void monster::spawn(int x, int y)
 {
  posx = x;
  posy = y;
+ feature = gen_feature();
 }
 
 monster::~monster()
@@ -216,6 +216,19 @@ char monster::symbol()
  return type->sym;
 }
 
+#ifdef TILES
+void monster::draw(WINDOW *w, int plx, int ply, bool inv)
+{
+ int x = (SEEX + posx - plx);
+ int y = (SEEY + posy - ply);
+ if (x < 0 || x > SEEX * 2 ||
+     y < 0 || y > SEEY * 2)
+     return;
+ tiles.draw_cid (x * tiles.width, y * tiles.height, type->id, tiles.monster_cid, feature);
+ if (inv)
+    tiles.draw_cid (x * tiles.width, y * tiles.height, scid_select, tiles.special_cid);
+}
+#else
 void monster::draw(WINDOW *w, int plx, int ply, bool inv)
 {
  int x = SEEX + posx - plx;
@@ -230,6 +243,7 @@ void monster::draw(WINDOW *w, int plx, int ply, bool inv)
   mvwputch(w, y, x, color, type->sym);
  }
 }
+#endif
 
 nc_color monster::color_with_effects()
 {
@@ -266,7 +280,7 @@ bool monster::made_of(material m)
   return true;
  return false;
 }
- 
+
 void monster::load_info(std::string data, std::vector <mtype*> *mtypes)
 {
  std::stringstream dump;
@@ -274,7 +288,7 @@ void monster::load_info(std::string data, std::vector <mtype*> *mtypes)
  dump << data;
  dump >> idtmp >> posx >> posy >> wandx >> wandy >> wandf >> moves >> speed >>
          hp >> sp_timeout >> plansize >> friendly >> faction_id >> mission_id >>
-         dead >> anger >> morale;
+         dead >> anger >> morale >> feature;
  type = (*mtypes)[idtmp];
  point ptmp;
  for (int i = 0; i < plansize; i++) {
@@ -290,7 +304,7 @@ std::string monster::save_info()
          wandy << " " << wandf << " " << moves << " " << speed << " " << hp <<
          " " << sp_timeout << " " << plans.size() << " " << friendly << " " <<
           faction_id << " " << mission_id << " " << dead << " " << anger <<
-         " " << morale;
+         " " << morale << " " << feature;
  for (int i = 0; i < plans.size(); i++) {
   pack << " " << plans[i].x << " " << plans[i].y;
  }
@@ -528,7 +542,7 @@ void monster::hit_monster(game *g, int i)
 {
  int junk;
  monster* target = &(g->z[i]);
- 
+
  int numdice = type->melee_skill;
  int dodgedice = target->dodge() * 2;
  switch (target->type->size) {
@@ -549,7 +563,7 @@ void monster::hit_monster(game *g, int i)
  if (target->hurt(damage))
   g->kill_mon(i, (friendly != 0));
 }
- 
+
 
 bool monster::hurt(int dam)
 {
@@ -587,7 +601,7 @@ int monster::dodge()
 int monster::dodge_roll()
 {
  int numdice = dodge();
- 
+
  switch (type->size) {
   case MS_TINY:  numdice += 6; break;
   case MS_SMALL: numdice += 3; break;

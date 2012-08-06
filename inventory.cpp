@@ -136,7 +136,7 @@ void inventory::push_back(std::vector<item> newits)
 {
  add_stack(newits);
 }
- 
+
 void inventory::add_item(item newit, bool keep_invlet)
 {
  if (keep_invlet && !newit.invlet_is_okay())
@@ -423,7 +423,7 @@ void inventory::use_charges(itype_id it, int quantity)
   }
  }
 }
- 
+
 bool inventory::has_amount(itype_id it, int quantity)
 {
  return (amount_of(it) >= quantity);

@@ -1,11 +1,7 @@
 #ifndef _MAP_H_
 #define _MAP_H_
 
-#if (defined _WIN32 || defined WINDOWS)
-	#include "catacurse.h"
-#else
-	#include <curses.h>
-#endif
+#include "catacurses.h"
 
 #include <stdlib.h>
 #include <vector>
@@ -37,7 +33,15 @@ class map
 // Visual Output
  void draw(game *g, WINDOW* w);
  void debug();
+ // draw one square of terrain window
  void drawsq(WINDOW* w, player &u, int x, int y, bool invert, bool show_items);
+ // put a character into terrain window x, y = { 0.. SEEXY * 2 } -- note! y, then x
+ // ---> use this instead mwputch (w_terrain, ...) <---
+ void putch (WINDOW* w, int y, int x, nc_color color, char sym);
+ // draw fog of war in terrain window, x, y = global coords (relative to left-top map corner)
+ void draw_fog (WINDOW* w, player &u, int x, int y, nc_color color);
+ // draw player in terrain window, always in center
+ void draw_player (WINDOW* w, player &u, int sel = 0);
 
 // File I/O
  virtual void save(overmap *om, unsigned int turn, int x, int y);
@@ -83,10 +87,27 @@ class map
  ter_id& ter(int x, int y); // Terrain at coord (x, y); {x|y}=(0, SEE{X|Y}*3]
  std::string tername(int x, int y); // Name of terrain at (x, y)
  std::string features(int x, int y); // Words relevant to terrain (sharp, etc)
+
  bool has_flag(t_flag flag, int x, int y);  // checks terrain and vehicles
  bool has_flag_ter_only(t_flag flag, int x, int y); // only checks terrain
  bool is_destructable(int x, int y);        // checks terrain and vehicles
  bool is_destructable_ter_only(int x, int y);       // only checks terrain
+
+// terrain feature (randomness + configuration for walls)
+ t_feature ter_feature (int x, int y);
+ // get terrain (walls/etc.) configuration
+ int ter_conf (int x, int y);
+ // set special terrain (walls/etc.) configuration
+ void set_ter_conf (int x, int y, int conf);
+ // set terrain (walls/etc.) configuration based on nearby terrain
+ void set_ter_conf (int x, int y);
+ // set terrain (walls/etc.) configuration based on nearby terrain, for all grid
+ void set_ter_conf ();
+ // check if terrain t should connect to terrain t2
+ static bool is_ter_connects (ter_id t, ter_id t2);
+ // returns symbol of terrain (according to its configuration)
+ char ter_sym (int x, int y);
+
  bool is_outside(int x, int y);
  bool flammable_items_at(int x, int y);
  point random_outdoor_tile();
@@ -148,7 +169,7 @@ class map
  void add_spawn(monster *mon);
  vehicle *add_vehicle(game *g, vhtype_id type, int x, int y, int dir);
  computer* add_computer(int x, int y, std::string name, int security);
- 
+
  std::vector <itype*> *itypes;
 
 protected:

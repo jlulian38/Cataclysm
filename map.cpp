@@ -4,6 +4,7 @@
 #include "game.h"
 #include "line.h"
 #include <cmath>
+#include <algorithm>
 #include <stdlib.h>
 #include <fstream>
 
@@ -232,7 +233,7 @@ bool map::displace_vehicle (game *g, int &x, int &y, int dx, int dy, bool test=f
   player *psg = psgs[i];
   int p = psg_parts[i];
   if (!psg) {
-   debugmsg ("empty passenger part %d pcoord=%d,%d u=%d,%d?", p, 
+   debugmsg ("empty passenger part %d pcoord=%d,%d u=%d,%d?", p,
              veh->global_x() + veh->parts[p].precalc_dx[0],
              veh->global_y() + veh->parts[p].precalc_dy[0],
                       g->u.posx, g->u.posy);
@@ -275,7 +276,7 @@ bool map::displace_vehicle (game *g, int &x, int &y, int dx, int dy, bool test=f
  if (need_update &&
      (upd_x < SEEX * int(my_MAPSIZE / 2) || upd_y < SEEY *int(my_MAPSIZE / 2) ||
       upd_x >= SEEX * (1+int(my_MAPSIZE / 2)) ||
-      upd_y >= SEEY * (1+int(my_MAPSIZE / 2))   )) {
+      upd_y >= SEEY * (1+int(my_MAPSIZE / 2)) )) {
 // map will shift, so adjust vehicle coords we've been passed
   if (upd_x < SEEX * int(my_MAPSIZE / 2))
    x += SEEX;
@@ -564,7 +565,7 @@ ter_id& map::ter(int x, int y)
 {
  if (!INBOUNDS(x, y)) {
   nulter = t_null;
-  return nulter;	// Out-of-bounds - null terrain 
+  return nulter;	// Out-of-bounds - null terrain
  }
 /*
  int nonant;
@@ -596,6 +597,91 @@ std::string map::features(int x, int y)
  if (has_flag(sharp, x, y))
   ret += "Sharp. ";	// 35 chars
  return ret;
+}
+
+t_feature map::ter_feature(int x, int y)
+{
+ if (!INBOUNDS(x, y))
+  return 0;
+ int nonant = int(x / SEEX) + int(y / SEEY) * my_MAPSIZE;
+ x %= SEEX;
+ y %= SEEY;
+ return grid[nonant].feature[x][y];
+}
+
+int map::ter_conf (int x, int y)
+{
+    t_feature ft = ter_feature (x, y);
+    return (int) ((ft >> 12) & 0xf);
+}
+
+void map::set_ter_conf (int x, int y, int conf)
+{
+ if (!INBOUNDS(x, y))
+  return;
+ int nonant = int(x / SEEX) + int(y / SEEY) * my_MAPSIZE;
+ x %= SEEX;
+ y %= SEEY;
+ grid[nonant].feature[x][y] = (grid[nonant].feature[x][y] & 0x0fff) | ((t_feature) (conf & 0xf)) << 12;
+}
+
+void map::set_ter_conf (int x, int y)
+{
+    ter_id &t = ter (x, y);
+    int cfg = (is_ter_connects (t, ter(x-1, y))? tcf_w : 0) |
+              (is_ter_connects (t, ter(x+1, y))? tcf_e : 0) |
+              (is_ter_connects (t, ter(x, y-1))? tcf_n : 0) |
+              (is_ter_connects (t, ter(x, y+1))? tcf_s : 0);
+    set_ter_conf(x, y, cfg);
+}
+
+void map::set_ter_conf ()
+{
+    for (int x = 0; x < SEEX * my_MAPSIZE; x++)
+        for (int y = 0; y < SEEY * my_MAPSIZE; y++)
+            set_ter_conf (x, y);
+}
+
+bool map::is_ter_connects (ter_id t, ter_id t2)
+{
+    if (t < 0 || t >= num_terrain_types ||
+        t2 < 0 || t2 >= num_terrain_types)
+    {
+        debugmsg ("map::is_ter_connects t1=%d t2=%d num_ter=%d", t, t2, num_terrain_types);
+        return false;
+    }
+    if (t == t2)
+        return true;
+    if (t == t_wall || t == t_wall_metal)
+    {
+        if (terlist[t2].movecost == 0)
+            return true;
+        int i = 0;
+        while (ter_omni_connect[i] != t_null)
+            if (t2 == ter_omni_connect[i++])
+                return true;
+    }
+    else
+    if (t2 == t_wall || t2 == t_wall_metal)
+    {
+        int i = 0;
+        while (ter_omni_connect[i] != t_null)
+            if (t == ter_omni_connect[i++])
+                return true;
+    }
+    return false;
+}
+
+char map::ter_sym (int x, int y)
+{
+    char sym = terlist[ter(x, y)].sym;
+    if (sym != '|')
+        return sym;
+    int cfg = ter_conf(x, y);
+    int cfh = cfg & (tcf_w | tcf_e);
+    if ((cfh == (tcf_w | tcf_e) || ((cfh == tcf_w || cfh == tcf_e) && cfg != tcf_ue && cfg != tcf_uw)))
+        sym = '-';
+    return sym;
 }
 
 int map::move_cost(int x, int y)
@@ -928,10 +1014,8 @@ bool map::bash(int x, int y, int str, std::string &sound, int *res)
   }
   break;
 
- case t_wall_glass_h:
- case t_wall_glass_v:
- case t_wall_glass_h_alarm:
- case t_wall_glass_v_alarm:
+ case t_wall_glass:
+ case t_wall_glass_alarm:
  case t_door_glass_c:
   result = rng(0, 20);
   if (res) *res = result;
@@ -945,8 +1029,7 @@ bool map::bash(int x, int y, int str, std::string &sound, int *res)
   }
   break;
 
- case t_reinforced_glass_h:
- case t_reinforced_glass_v:
+ case t_reinforced_glass:
   result = rng(60, 100);
   if (res) *res = result;
   if (str >= result) {
@@ -1081,8 +1164,7 @@ void map::destroy(game *g, int x, int y, bool makesound)
   }
   break;
 
- case t_wall_v:
- case t_wall_h:
+ case t_wall:
   for (int i = x - 2; i <= x + 2; i++) {
    for (int j = y - 2; j <= y + 2; j++) {
     if (move_cost(i, j) > 0 && one_in(5))
@@ -1159,10 +1241,8 @@ void map::shoot(game *g, int x, int y, int &dam, bool hit_items, unsigned flags)
    ter(x, y) = t_window_frame;
   break;
 
- case t_wall_glass_h:
- case t_wall_glass_v:
- case t_wall_glass_h_alarm:
- case t_wall_glass_v_alarm:
+ case t_wall_glass:
+ case t_wall_glass_alarm:
   dam -= rng(0, 8);
   ter(x, y) = t_floor;
   break;
@@ -1274,10 +1354,8 @@ bool map::hit_with_acid(game *g, int x, int y)
   return false; // Didn't hit the tile!
 
  switch (ter(x, y)) {
-  case t_wall_glass_v:
-  case t_wall_glass_h:
-  case t_wall_glass_v_alarm:
-  case t_wall_glass_h_alarm:
+  case t_wall_glass:
+  case t_wall_glass_alarm:
   case t_vat:
    ter(x, y) = t_floor;
    break;
@@ -1522,7 +1600,7 @@ void map::process_active_items(game *g)
   }
  }
 }
-     
+
 void map::process_active_items_in_submap(game *g, int nonant)
 {
  it_tool* tmp;
@@ -1628,7 +1706,7 @@ void map::use_charges(point origin, int range, itype_id type, int quantity)
   }
  }
 }
- 
+
 trap_id& map::tr_at(int x, int y)
 {
  if (!INBOUNDS(x, y)) {
@@ -1653,7 +1731,7 @@ trap_id& map::tr_at(int x, int y)
   nultrap = terlist[ grid[nonant].ter[x][y] ].trap;
   return nultrap;
  }
- 
+
  return grid[nonant].trp[x][y];
 }
 
@@ -1706,7 +1784,7 @@ void map::disarm_trap(game *g, int x, int y)
    g->u.practice(sk_traps, 2*diff);
  }
 }
- 
+
 field& map::field_at(int x, int y)
 {
  if (!INBOUNDS(x, y)) {
@@ -1797,24 +1875,191 @@ void map::debug()
 
 void map::draw(game *g, WINDOW* w)
 {
+#ifdef TILES
+ // clear the terrain window
+ gfx_set_color_argb (0xff000000);
+ gfx_draw_rectangle(0, 0, (SEEX * 2 + 1) * tiles.width, (SEEY * 2 + 1) * tiles.height);
+#endif
  int t = 0;
  int light = g->u.sight_range(g->light_level());
  for  (int realx = g->u.posx - SEEX; realx <= g->u.posx + SEEX; realx++) {
   for (int realy = g->u.posy - SEEY; realy <= g->u.posy + SEEY; realy++) {
    int dist = rl_dist(g->u.posx, g->u.posy, realx, realy);
    if (dist > light) {
-    if (g->u.has_disease(DI_BOOMERED))
-     mvwputch(w, realx+SEEX - g->u.posx, realy+SEEY - g->u.posy, c_magenta,'#');
-    else
-     mvwputch(w, realx+SEEX - g->u.posx, realy+SEEY - g->u.posy, c_dkgray, '#');
+    draw_fog (w, g->u, realx+SEEX - g->u.posx, realy+SEEY - g->u.posy,
+                g->u.has_disease(DI_BOOMERED)? c_magenta : c_dkgray);
    } else if (dist <= g->u.clairvoyance() ||
               sees(g->u.posx, g->u.posy, realx, realy, light, t))
     drawsq(w, g->u, realx, realy, false, true);
   }
  }
- mvwputch(w, SEEY, SEEX, g->u.color(), '@');
+ draw_player (w, g->u);
+ if (g->u.in_vehicle)
+ {
+    vehicle *veh = veh_at(g->u.posx, g->u.posy);
+    if (veh)
+    {
+        tileray vdir = veh->move;
+        vdir.advance (12);
+        putch (w, SEEY + vdir.dy(), SEEX + vdir.dx(), c_green, '+');
+    }
+ }
 }
 
+void map::putch (WINDOW* w, int y, int x, nc_color color, char sym)
+{
+    if (x < 0 || x > SEEX * 2 ||
+        y < 0 || y > SEEY * 2)
+        return;
+#ifdef TILES
+    tiles.draw_backup (x * tiles.width, y * tiles.height, color, sym, true);
+#else
+    mvwputch(w, y, x, color, sym);
+#endif
+}
+
+void map::draw_fog (WINDOW* w, player &u, int x, int y, nc_color color)
+{
+    x = x + SEEX - u.posx;
+    y = y + SEEY - u.posy;
+#ifdef TILES
+    gfx_set_color_argb (0xff000000);
+    gfx_draw_rectangle(x * tiles.width, y * tiles.height, tiles.width, tiles.height);
+    tiles.draw_cid (x * tiles.width, y * tiles.height,
+                    scid_fog, tiles.special_cid, 0, gfx_fg_to_argb(color));
+#else
+    mvwputch(w, y, x, color, '#');
+#endif
+}
+
+void map::draw_player (WINDOW* w, player &u, int sel)
+{
+#ifdef TILES
+    int tx = SEEX * tiles.width;
+    int ty = SEEY * tiles.height;
+    drawsq (w, u, u.posx, u.posy, false, true);
+    tiles.draw_cid (tx, ty, scid_you, tiles.special_cid);
+
+    // draw clothes
+    // first, get ids of anything worn by player
+    std::vector<int> lworn;
+    for (int i = 0; i < u.worn.size(); i++)
+        lworn.push_back (u.worn[i].type->id);
+    // then, sort ids in the ascending order
+    std::sort (lworn.begin(), lworn.end());
+    // then, draw them in that order
+    for (int i = 0; i < lworn.size(); i++)
+        if (tiles.worn_cid[lworn[i]].cid >= 0)
+            tiles.draw_cid (tx, ty, lworn[i], tiles.worn_cid);
+
+    // draw a weapon
+    if (u.weapon.type->id != 0 &&
+        u.weapon.type->id < num_items &&
+        !u.weapon.is_armor() &&
+        tiles.worn_cid[u.weapon.type->id].cid >= 0)
+        tiles.draw_cid (tx, ty, u.weapon.type->id, tiles.worn_cid);
+
+    if (sel)
+        tiles.draw_cid (tx, ty, sel == 1? scid_select : scid_aim, tiles.special_cid);
+#else
+    if (sel)
+        mvwputch_inv(w, SEEY, SEEX, u.color(), '@');
+    else
+        mvwputch(w, SEEY, SEEX, u.color(), '@');
+#endif
+}
+
+#ifdef TILES
+// Tileset version of map square display:
+void map::drawsq(WINDOW* w, player &u, int x, int y, bool invert,
+                 bool show_items)
+{
+ if (!INBOUNDS(x, y))
+  return;   // Out of bounds
+ int cx = (x + SEEX - u.posx);
+ int cy = (y + SEEY - u.posy);
+ int tx = cx * tiles.width;
+ int ty = cy * tiles.height;
+ if (cx < 0 || cx > SEEX * 2 ||
+     cy < 0 || cy > SEEY * 2)
+     return;
+ unsigned long tint = 0xffffffff;
+ bool mono = false;
+
+ // clear the background for tile
+ gfx_set_color_argb (0xff000000);
+ gfx_draw_rectangle(tx, ty, tiles.width, tiles.height);
+
+ if (u.has_disease(DI_BOOMERED))
+ {
+     tint = 0xffff00ff;
+     mono = true;
+ }
+ else if ((u.is_wearing(itm_goggles_nv) && u.has_active_item(itm_UPS_on)) ||
+          u.has_active_bionic(bio_night_vision))
+ {
+     tint = 0xff00ff00;
+     mono = true;
+ }
+
+ ter_id &t = ter(x, y);
+ ter_id base = terlist[t].base_terrain;
+ // if there's base terrain, draw it first
+ if (base > t_null)
+     tiles.draw_terrain (tx, ty, this, x, y, true, tint, mono);
+ // draw any overlaps
+ tiles.draw_overlaps (tx, ty, this, x, y, tint, mono);
+ // draw actual terrain
+ if (base != t)
+     tiles.draw_terrain (tx, ty, this, x, y, false, tint, mono);
+
+ if (move_cost(x, y) == 0 && has_flag(swimmable, x, y) && !u.underwater)
+    show_items = false;   // Can only see underwater items if WE are underwater
+
+// If there's a trap here, and we have sufficient perception, draw that
+ if (tr_at(x, y) != tr_null &&
+     u.per_cur - u.encumb(bp_eyes) >= (*traps)[tr_at(x, y)]->visibility)
+ {
+    tiles.draw_cid (tx, ty, tr_at(x, y), tiles.trap_cid, ter_feature(x, y), tint, mono);
+ }
+
+ std::vector<item> &ivec = i_at(x, y);
+ if (show_items && ivec.size() > 0 && ivec[ivec.size()-1].type)
+ {
+    if (ivec.size() > 1 && tiles.special_cid[scid_bulb].cid >= 0) //  draw a bulb, showing additional items
+    {
+        unsigned long btint = (ivec.size() <= 2? 0xff00ff00 :
+                              (ivec.size() <= 3? 0xffffff00 :
+                              (ivec.size() <= 4? 0xffff7f00 : 0xffff0000)));
+        tiles.draw_cid (tx, ty, scid_bulb, tiles.special_cid, 0, btint, false);
+    }
+    tiles.draw_cid (tx, ty, ivec[ivec.size()-1].type->id, tiles.item_cid, ivec[ivec.size()-1].feature, tint, mono);
+ }
+
+// If there's a field here, draw that
+ if (field_at(x, y).type != fd_null)
+ {
+    t_feature feature = fieldlist[field_at(x, y).type].v0latile? gen_feature() : ter_feature(x, y);
+    int fld_num = field_at(x, y).type * 3 + field_at(x, y).density - 1;
+    tiles.draw_cid (tx, ty, fld_num, tiles.field_cid, feature);//, tint, mono);
+ }
+ tiles.draw_fieldlaps (tx, ty, this, x, y);//, tint, mono);
+
+ int veh_part = 0;
+ vehicle *veh = veh_at(x, y, veh_part);
+ if (veh)
+ {
+   tiles.draw_backup (tx, ty, veh->part_color(veh_part),
+                special_symbol (veh->face.dir_symbol(veh->part_sym(veh_part))),
+                true, tint, mono);
+ }
+
+ if (invert)
+    tiles.draw_cid (tx, ty, scid_select, tiles.special_cid);
+}
+
+#else
+// Console version of map square display:
 void map::drawsq(WINDOW* w, player &u, int x, int y, bool invert,
                  bool show_items)
 {
@@ -1823,7 +2068,7 @@ void map::drawsq(WINDOW* w, player &u, int x, int y, bool invert,
  int k = x + SEEX - u.posx;
  int j = y + SEEY - u.posy;
  nc_color tercol;
- long sym = terlist[ter(x, y)].sym;
+ char sym = ter_sym (x, y);
  bool hi = false;
  bool normal_tercol = false;    // indicates that tile color is not changed by effects (boomered, nigh vision)
  if (u.has_disease(DI_BOOMERED))
@@ -1894,6 +2139,8 @@ void map::drawsq(WINDOW* w, player &u, int x, int y, bool invert,
  else
   mvwputch    (w, j, k, tercol, sym);
 }
+#endif
+
 
 /*
 map::sees based off code by Steve Register [arns@arns.freeservers.com]
@@ -1911,7 +2158,7 @@ bool map::sees(int Fx, int Fy, int Tx, int Ty, int range, int &tc)
  int y = Fy;
  int t = 0;
  int st;
- 
+
  if (range >= 0 && (abs(dx) > range || abs(dy) > range))
   return false;	// Out of range!
  if (ax > ay) { // Mostly-horizontal line
@@ -1974,7 +2221,7 @@ bool map::clear_path(int Fx, int Fy, int Tx, int Ty, int range, int cost_min,
  int y = Fy;
  int t = 0;
  int st;
- 
+
  if (range >= 0 && (abs(dx) > range || abs(dy) > range))
   return false;	// Out of range!
  if (ax > ay) { // Mostly-horizontal line
@@ -2261,6 +2508,9 @@ void map::shift(game *g, int wx, int wy, int sx, int sy)
 // 0,0 1,0 2,0
 // 0,1 1,1 2,1
 // 0,2 1,2 2,2
+
+#define SAVE_TERRAIN_FEATURES
+
 void map::saven(overmap *om, unsigned int turn, int worldx, int worldy,
                 int gridx, int gridy)
 {
@@ -2281,9 +2531,16 @@ void map::saven(overmap *om, unsigned int turn, int worldx, int worldy,
    fout << int(grid[n].ter[i][j]) << " ";
   fout << std::endl;
  }
+#ifdef SAVE_TERRAIN_FEATURES
+ for (int j = 0; j < SEEY; j++) {
+  for (int i = 0; i < SEEX; i++)
+   fout << (int) (grid[n].feature[i][j]) << " ";
+  fout << std::endl;
+ }
+#endif
 // Dump the radiation
  for (int j = 0; j < SEEY; j++) {
-  for (int i = 0; i < SEEX; i++) 
+  for (int i = 0; i < SEEX; i++)
    fout << grid[n].rad[i][j] << " ";
  }
  fout << std::endl;
@@ -2388,6 +2645,15 @@ bool map::loadn(game *g, int worldx, int worldy, int gridx, int gridy)
     grid[gridn].fld[i][j] = field();
    }
   }
+#ifdef SAVE_TERRAIN_FEATURES
+  for (int j = 0; j < SEEY; j++) {
+   for (int i = 0; i < SEEX; i++) {
+    int tmpfeat;
+    mapin >> tmpfeat;
+    grid[gridn].feature[i][j] = (t_feature) tmpfeat;
+   }
+  }
+#endif
 // Load irradiation
   for (int j = 0; j < SEEY; j++) {
    for (int i = 0; i < SEEX; i++) {
@@ -2488,6 +2754,7 @@ void map::copy_grid(int to, int from)
    grid[to].trp[x][y] = grid[from].trp[x][y];
    grid[to].fld[x][y] = grid[from].fld[x][y];
    grid[to].rad[x][y] = grid[from].rad[x][y];
+   grid[to].feature[x][y] = grid[from].feature[x][y];
    grid[to].active_item_count = grid[from].active_item_count;
    grid[to].field_count = grid[from].field_count;
   }
@@ -2529,7 +2796,7 @@ void map::spawn_monsters(game *g)
       tmp.friendly = -1;
      int fx = mx + gx * SEEX, fy = my + gy * SEEY;
 
-     while ((!g->is_empty(fx, fy) || !tmp.can_move_to(g->m, fx, fy)) && 
+     while ((!g->is_empty(fx, fy) || !tmp.can_move_to(g->m, fx, fy)) &&
             tries < 10) {
       mx = (grid[n].spawns[i].posx + rng(-3, 3)) % SEEX;
       my = (grid[n].spawns[i].posy + rng(-3, 3)) % SEEY;

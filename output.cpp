@@ -1,9 +1,5 @@
 
-#if (defined _WIN32 || defined WINDOWS)
-	#include "catacurse.h"
-#else
-	#include <curses.h>
-#endif
+#include "catacurses.h"
 
 #include <string>
 #include <vector>
@@ -478,7 +474,7 @@ char popup_getkey(const char *mes, ...)
  }
  line_num++;
  mvwprintz(w, line_num, 1, c_white, tmp.c_str());
- 
+
  wrefresh(w);
  char ch = getch();;
  werase(w);
@@ -589,7 +585,7 @@ void popup_top(const char *mes, ...)
  }
  line_num++;
  mvwprintz(w, line_num, 1, c_white, tmp.c_str());
- 
+
  wrefresh(w);
  char ch;
  do
@@ -640,7 +636,7 @@ void popup(const char *mes, ...)
  }
  line_num++;
  mvwprintz(w, line_num, 1, c_white, tmp.c_str());
- 
+
  wrefresh(w);
  char ch;
  do
@@ -691,7 +687,7 @@ void popup_nowait(const char *mes, ...)
  }
  line_num++;
  mvwprintz(w, line_num, 1, c_white, tmp.c_str());
- 
+
  wrefresh(w);
  delwin(w);
  refresh();
@@ -705,6 +701,7 @@ void full_screen_popup(const char* mes, ...)
  vsprintf(buff, mes, ap);
  va_end(ap);
  std::string tmp = buff;
+ clear();
  WINDOW* w = newwin(25, 80, 0, 0);
  wborder(w, LINE_XOXO, LINE_XOXO, LINE_OXOX, LINE_OXOX,
             LINE_OXXO, LINE_OOXX, LINE_XXOO, LINE_XOOX );

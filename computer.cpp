@@ -35,7 +35,7 @@ computer& computer::operator=(const computer &rhs)
  name = rhs.name;
  mission_id = rhs.mission_id;
  options.clear();
- for (int i = 0; i < rhs.options.size(); i++) 
+ for (int i = 0; i < rhs.options.size(); i++)
   options.push_back(rhs.options[i]);
  failures.clear();
  for (int i = 0; i < rhs.failures.size(); i++)
@@ -69,11 +69,12 @@ void computer::shutdown_terminal()
 
 void computer::use(game *g)
 {
+ clear();
  if (w_terminal == NULL)
   w_terminal = newwin(25, 80, 0, 0);
  wborder(w_terminal, LINE_XOXO, LINE_XOXO, LINE_OXOX, LINE_OXOX,
                      LINE_OXXO, LINE_OOXX, LINE_XXOO, LINE_XOOX );
- 
+
  print_line("Logging into %s...", name.c_str());
 
  if (security > 0) {
@@ -127,7 +128,7 @@ void computer::use(game *g)
    print_line("%d - %s", i + 1, options[i].name.c_str());
   print_line("Q - Quit and shut down");
   print_line("");
- 
+
   char ch;
   do
    ch = getch();
@@ -190,7 +191,7 @@ std::string computer::save_data()
    savename.replace(found, 1, "_");
    found = savename.find(" ");
   }
-  data << savename << " " << int(options[i].action) << " " << 
+  data << savename << " " << int(options[i].action) << " " <<
           options[i].security << " ";
  }
  data << failures.size() << " ";
@@ -278,8 +279,8 @@ void computer::activate_function(game *g, computer_action action)
 
   case COMPACT_RELEASE:
    g->sound(g->u.posx, g->u.posy, 40, "An alarm sounds!");
-   g->m.translate(t_reinforced_glass_h, t_floor);
-   g->m.translate(t_reinforced_glass_v, t_floor);
+   g->m.translate(t_reinforced_glass, t_floor);
+   g->m.translate(t_reinforced_glass, t_floor);
    print_line("Containment shields opened.");
    break;
 
@@ -351,7 +352,7 @@ void computer::activate_function(game *g, computer_action action)
     if (ch == '%')
      notes++;
    }
-    
+
    while (lines < 10) {
     fin.clear();
     fin.seekg(0, std::ios::beg);
@@ -406,7 +407,7 @@ void computer::activate_function(game *g, computer_action action)
    for (int i = minx; i <= maxx; i++) {
     for (int j = miny; j <= maxy; j++)
      if ((g->cur_om.ter(i, j) >= ot_sewer_ns &&
-          g->cur_om.ter(i, j) <= ot_sewer_nesw) || 
+          g->cur_om.ter(i, j) <= ot_sewer_nesw) ||
          (g->cur_om.ter(i, j) >= ot_sewage_treatment &&
           g->cur_om.ter(i, j) <= ot_sewage_treatment_under))
      g->cur_om.seen(i, j) = true;
@@ -426,7 +427,7 @@ void computer::activate_function(game *g, computer_action action)
 // Figure out where the glass wall is...
    int wall_spot = 0;
    for (int i = g->u.posx; i < g->u.posx + SEEX * 2 && wall_spot == 0; i++) {
-    if (g->m.ter(i, 10) == t_wall_glass_v)
+    if (g->m.ter(i, 10) == t_wall_glass)
      wall_spot = i;
    }
 // ...and put radioactive to the right of it
@@ -808,7 +809,7 @@ bool computer::query_bool(const char *mes, ...)
         ret != 'Q');
  return (ret == 'y' || ret == 'Y');
 }
- 
+
 char computer::query_ynq(const char *mes, ...)
 {
 // Translate the printf flags

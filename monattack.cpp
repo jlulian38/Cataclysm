@@ -1067,8 +1067,8 @@ void mattack::stare(game *g, monster *z)
   g->add_msg("A piercing beam of light bursts forth!");
   std::vector<point> sight = line_to(z->posx, z->posy, g->u.posx, g->u.posy, 0);
   for (int i = 0; i < sight.size(); i++) {
-   if (g->m.ter(sight[i].x, sight[i].y) == t_reinforced_glass_h ||
-       g->m.ter(sight[i].x, sight[i].y) == t_reinforced_glass_v)
+   if (g->m.ter(sight[i].x, sight[i].y) == t_reinforced_glass ||
+       g->m.ter(sight[i].x, sight[i].y) == t_reinforced_glass)
     i = sight.size();
    else if (g->m.is_destructable(sight[i].x, sight[i].y))
     g->m.ter(sight[i].x, sight[i].y) = t_rubble;
@@ -1162,7 +1162,7 @@ void mattack::smg(game *g, monster *z)
 
   return;
  }
- 
+
 // Not friendly; hence, firing at the player
  if (rl_dist(z->posx, z->posy, g->u.posx, g->u.posy) > 24 ||
      !g->sees_u(z->posx, z->posy, t))

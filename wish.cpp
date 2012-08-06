@@ -7,6 +7,7 @@
 
 void game::wish()
 {
+ clear();
  WINDOW* w_list = newwin(25, 30, 0,  0);
  WINDOW* w_info = newwin(25, 50, 0, 30);
  int a = 0, shift = 0, result_selected = 0;
@@ -85,7 +86,7 @@ void game::wish()
   } else {	// Not searching; scroll by keys
    if (ch == 'j') a++;
    if (ch == 'k') a--;
-   if (ch == '/') { 
+   if (ch == '/') {
     search = true;
     pattern =  "";
     found = false;
@@ -163,6 +164,7 @@ void game::wish()
 
 void game::monster_wish()
 {
+ clear();
  WINDOW* w_list = newwin(25, 30, 0,  0);
  WINDOW* w_info = newwin(25, 50, 0, 30);
  int a = 0, shift = 1, result_selected = 0;
@@ -237,7 +239,7 @@ void game::monster_wish()
    if (ch == 'j') a++;
    if (ch == 'k') a--;
    if (ch == 'f') friendly = !friendly;
-   if (ch == '/') { 
+   if (ch == '/') {
     search = true;
     pattern =  "";
     found = false;
@@ -301,7 +303,7 @@ void game::monster_wish()
  delwin(w_info);
  delwin(w_list);
  refresh_all();
- wrefresh(w_terrain);
+ refresh_terrain();
  point spawn = look_around();
  if (spawn.x == -1)
   return;
@@ -311,6 +313,7 @@ void game::monster_wish()
 
 void game::mutation_wish()
 {
+ clear();
  WINDOW* w_list = newwin(25, 30, 0,  0);
  WINDOW* w_info = newwin(25, 50, 0, 30);
  int a = 0, shift = 0, result_selected = 0;
@@ -387,7 +390,7 @@ void game::mutation_wish()
   } else {	// Not searching; scroll by keys
    if (ch == 'j') a++;
    if (ch == 'k') a--;
-   if (ch == '/') { 
+   if (ch == '/') {
     search = true;
     pattern =  "";
     found = false;

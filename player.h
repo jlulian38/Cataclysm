@@ -253,6 +253,7 @@ public:
  std::vector<int> has_ammo(ammotype at);// Returns a list of indices of the ammo
 
 // ---------------VALUES-----------------
+ unsigned long feature;
  int posx, posy;
  bool in_vehicle;       // Means player sit inside vehicle on the tile he is now
  player_activity activity;

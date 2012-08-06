@@ -1,3 +1,4 @@
+#if !(defined TILES || defined GFX_GL)
 #if (defined _WIN32 || defined WINDOWS)
 #include "catacurse.h"
 #include <cstdlib>
@@ -805,5 +806,6 @@ void timeout(int delay)
 {
     inputdelay=delay;
 };
+#endif
 
 #endif
