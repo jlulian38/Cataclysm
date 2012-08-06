@@ -7,15 +7,19 @@
 #PROFILE = -pg
 
 ODIR = objwin
+ODIRT = objtwin
 DDIR = .deps
+DDIRT = .depst
 
 TARGET = cataclysm.exe
+TARGET_TILES = catatiles.exe
 
 PREFIX = i586-mingw32msvc-
 CXX = $(PREFIX)g++
 
 LINKER = $(PREFIX)ld
 LINKERFLAGS = -Wl,-stack,12000000,-subsystem,windows
+TILES_FLAGS = -lopengl32
 
 CFLAGS = $(WARNINGS) $(DEBUG) $(PROFILE)
 
@@ -30,6 +34,7 @@ LDFLAGS = -static -lgdi32
 SOURCES = $(wildcard *.cpp)
 _OBJS = $(SOURCES:.cpp=.o)
 OBJS = $(patsubst %,$(ODIR)/%,$(_OBJS))
+OBJST = $(patsubst %,$(ODIRT)/%,$(_OBJS))
 
 all: $(TARGET)
 	@
@@ -48,5 +53,27 @@ $(ODIR)/%.o: %.cpp
 
 clean:
 	rm -f $(TARGET) $(ODIR)/*.o
+
+tiles: $(TARGET_TILES)
+	@
+
+$(TARGET_TILES): $(ODIRT) $(DDIRT) $(OBJST)	
+	$(CXX) $(LINKERFLAGS) -o $(TARGET_TILES) $(CFLAGS) $(OBJST) $(LDFLAGS) $(TILES_FLAGS)
+
+$(ODIRT)/%.o: %.cpp
+	$(CXX) $(CFLAGS) -DTILES -c $< -o $@
+
+$(ODIRT):
+	mkdir $(ODIRT)
+
+$(DDIRT):
+	@mkdir $(DDIRT)
+
+$(ODIRT)/%.o: %.cpp
+	$(CXX) $(CFLAGS) -DTILES -c $< -o $@
+
+clean:
+	rm -f $(TARGET) $(ODIR)/*.o
+	rm -f $(TARGET_TILES) $(ODIRT)/*.o
 
 -include $(SOURCES:%.cpp=$(DEPDIR)/%.P)
